@@ -8,4 +8,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "minecraft-mcp"
+rootProject.name = "minecraft-control"

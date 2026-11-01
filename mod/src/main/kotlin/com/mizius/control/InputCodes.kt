@@ -1,4 +1,4 @@
-package com.mizius.mcp
+package com.mizius.control
 
 import com.google.gson.JsonElement
 import com.mojang.blaze3d.platform.InputConstants
@@ -6,40 +6,40 @@ import net.minecraft.client.input.KeyEvent
 import java.util.Locale
 
 /**
- * Keeps the MCP input protocol on GLFW codes while adapting callbacks to the
+ * Keeps the control input codes on GLFW codes while adapting callbacks to the
  * input constants used by the Minecraft version that loaded this JAR.
  */
 object InputCodes {
     private val backend: InputCodeBackend by lazy(LazyThreadSafetyMode.PUBLICATION) {
         InputCodeBackend(
             constant = ::inputConstant,
-            keyName = PROTOCOL_KEY_NAMES_BY_CODE::get,
-            protocolKey = PROTOCOL_KEY_CODES_BY_NAME::get,
+            keyName = GLFW_KEY_NAMES_BY_CODE::get,
+            glfwKey = GLFW_KEY_CODES_BY_NAME::get,
             sdl = KeyEvent::class.java.recordComponents?.any { it.name == "keycode" } == true
         )
     }
 
-    /** Parse a key name or numeric GLFW key code without translating its protocol value. */
+    /** Parse a key name or numeric GLFW key code without translating its GLFW value. */
     @JvmStatic
-    fun keyCode(key: JsonElement?): Int = parseKeyCode(key, PROTOCOL_KEY_CODES_BY_NAME::get)
+    fun keyCode(key: JsonElement?): Int = parseKeyCode(key, GLFW_KEY_CODES_BY_NAME::get)
 
-    /** Return the runtime Minecraft key for a protocol GLFW key code. */
+    /** Return the runtime Minecraft key for a GLFW key code. */
     @JvmStatic
     fun key(code: Int): InputConstants.Key = backend.key(code)
 
-    /** Translate a protocol GLFW key code to the runtime Minecraft keyboard code. */
+    /** Translate a GLFW key code to the runtime Minecraft keyboard code. */
     @JvmStatic
     fun nativeKey(code: Int): Int = backend.nativeKey(code)
 
-    /** Translate the protocol's zero-based mouse button to the runtime input code. */
+    /** Translate a zero-based GLFW mouse button to the runtime input code. */
     @JvmStatic
-    fun mouseButton(protocolButton: Int): Int = backend.mouseButton(protocolButton)
+    fun mouseButton(glfwButton: Int): Int = backend.mouseButton(glfwButton)
 
     /** Create an event with the version-appropriate second argument. */
     @JvmStatic
     fun keyEvent(code: Int, modifiers: Int): KeyEvent = backend.keyEvent(code, modifiers)
 
-    /** Build runtime modifier bits from held protocol GLFW key codes. */
+    /** Build runtime modifier bits from held GLFW key codes. */
     @JvmStatic
     fun modifiers(held: (Int) -> Boolean): Int = backend.modifiers(held)
 
@@ -69,9 +69,9 @@ object InputCodes {
         return lookup(name) ?: throw IllegalArgumentException("Unknown key: $name")
     }
 
-    // These are protocol GLFW key values. Keep them fixed so a 26.3 runtime
+    // These are GLFW key values. Keep them fixed so a 26.3 runtime
     // does not need the GLFW class that its SDL input backend removed.
-    private val PROTOCOL_KEY_CODES_BY_NAME: Map<String, Int> = buildMap {
+    private val GLFW_KEY_CODES_BY_NAME: Map<String, Int> = buildMap {
         put("SPACE", 32)
         put("APOSTROPHE", 39)
         put("COMMA", 44)
@@ -126,8 +126,8 @@ object InputCodes {
         put("RIGHT_SUPER", 347)
         put("MENU", 348)
     }
-    private val PROTOCOL_KEY_NAMES_BY_CODE: Map<Int, String> =
-        PROTOCOL_KEY_CODES_BY_NAME.entries.associate { (name, code) -> code to name }
+    private val GLFW_KEY_NAMES_BY_CODE: Map<Int, String> =
+        GLFW_KEY_CODES_BY_NAME.entries.associate { (name, code) -> code to name }
 
     private fun inputConstant(name: String): Int? {
         try { return InputConstants::class.java.getField(name).getInt(null) }
@@ -149,7 +149,7 @@ object InputCodes {
 internal class InputCodeBackend(
     private val constant: (String) -> Int?,
     private val keyName: (Int) -> String?,
-    private val protocolKey: (String) -> Int?,
+    private val glfwKey: (String) -> Int?,
     private val sdl: Boolean
 ) {
     val press: Int get() = requiredConstant("PRESS")
@@ -211,13 +211,13 @@ internal class InputCodeBackend(
         return candidates.firstNotNullOfOrNull(constant) ?: throw unsupportedKey(glfwName)
     }
 
-    fun mouseButton(protocolButton: Int): Int {
-        require(protocolButton in 0..7) { "Invalid mouse button: $protocolButton" }
-        val suffix = when (protocolButton) {
+    fun mouseButton(glfwButton: Int): Int {
+        require(glfwButton in 0..7) { "Invalid mouse button: $glfwButton" }
+        val suffix = when (glfwButton) {
             0 -> "LEFT"
             1 -> "RIGHT"
             2 -> "MIDDLE"
-            else -> (protocolButton + 1).toString()
+            else -> (glfwButton + 1).toString()
         }
         return requiredConstant("MOUSE_BUTTON_$suffix")
     }
@@ -235,7 +235,7 @@ internal class InputCodeBackend(
     }
 
     private fun isHeld(held: (Int) -> Boolean, vararg names: String): Boolean =
-        names.any { name -> protocolKey(name)?.let(held) == true }
+        names.any { name -> glfwKey(name)?.let(held) == true }
 
     private fun sdlKeycode(code: Int): Int {
         val name = keyName(code) ?: throw unsupportedKey("GLFW code $code")

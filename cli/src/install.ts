@@ -306,7 +306,7 @@ export async function install(root: string, version: string, compatibility: { lo
   const variables: Record<string, string> = {
     version_name: fabric.id, version_type: vanilla.type, game_directory: instance,
     assets_root: assets, assets_index_name: vanilla.assetIndex.id, natives_directory: natives,
-    launcher_name: 'minecraft-mcp', launcher_version: '1.0', classpath: classpath.filter(Boolean).join(';'),
+    launcher_name: 'minecraft-cli', launcher_version: '1.0', classpath: classpath.filter(Boolean).join(';'),
     classpath_separator: ';', library_directory: libraries, auth_access_token: '0',
     auth_xuid: '', clientid: '', user_type: 'legacy', user_properties: '{}',
   };
@@ -314,7 +314,7 @@ export async function install(root: string, version: string, compatibility: { lo
     java, instance, versionId: fabric.id, optionsDataVersion: optionsDataVersion!,
     launch(username, uuid, port = 8765, background = true) {
       const values = { ...variables, auth_player_name: username, auth_uuid: uuid };
-      return ['-Xmx4G', `-Dminecraft.mcp.port=${port}`, `-Dminecraft.mcp.background=${background}`,
+      return ['-Xmx4G', `-Dminecraft.control.port=${port}`, `-Dminecraft.control.background=${background}`,
         ...argumentsFor(vanilla.arguments.jvm, values), ...argumentsFor(fabric.arguments?.jvm ?? [], values),
         ...logArgument, fabric.mainClass,
         ...argumentsFor(vanilla.arguments.game, values), ...argumentsFor(fabric.arguments?.game ?? [], values)];

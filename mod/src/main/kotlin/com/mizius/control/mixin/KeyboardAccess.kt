@@ -1,4 +1,4 @@
-package com.mizius.mcp.mixin
+package com.mizius.control.mixin
 
 import net.minecraft.client.KeyboardHandler
 import net.minecraft.client.input.CharacterEvent
@@ -9,8 +9,8 @@ import org.spongepowered.asm.mixin.gen.Invoker
 @Mixin(KeyboardHandler::class)
 interface KeyboardAccess {
     @Invoker("keyPress")
-    fun `mcp$keyPress`(window: Long, action: Int, event: KeyEvent)
+    fun `control$keyPress`(window: Long, action: Int, event: KeyEvent)
 
     @Invoker("charTyped")
-    fun `mcp$charTyped`(window: Long, event: CharacterEvent)
+    fun `control$charTyped`(window: Long, event: CharacterEvent)
 }

@@ -1,4 +1,4 @@
-package com.mizius.mcp
+package com.mizius.control
 
 import com.google.gson.JsonNull
 import com.google.gson.JsonPrimitive
@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 
 class InputCodesTest {
     @Test
-    fun `key names and aliases preserve GLFW protocol values`() {
+    fun `key names and aliases preserve GLFW GLFW values`() {
         assertEquals(87, InputCodes.keyCode(JsonPrimitive("w")))
         assertEquals(341, InputCodes.keyCode(JsonPrimitive("ctrl")))
         assertEquals(344, InputCodes.keyCode(JsonPrimitive("right shift")))
@@ -155,7 +155,7 @@ class InputCodesTest {
             314 to "F25",
             161 to "WORLD_1"
         )
-        val protocolCodes = keyNames.entries.associate { (code, name) -> name to code }
+        val glfwCodes = keyNames.entries.associate { (code, name) -> name to code }
         val constants = if (sdl) {
             mapOf(
                 "KEY_A" to 4, "KEY_W" to 26, "KEY_RETURN" to 40, "KEY_LSHIFT" to 225,
@@ -182,7 +182,7 @@ class InputCodesTest {
         return InputCodeBackend(
             constant = constants::get,
             keyName = keyNames::get,
-            protocolKey = protocolCodes::get,
+            glfwKey = glfwCodes::get,
             sdl = sdl
         )
     }

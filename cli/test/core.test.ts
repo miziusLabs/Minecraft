@@ -28,7 +28,7 @@ test('manifest resolution selects the default or requested bundled version', asy
       '26.2': { loader: '0.19.5', java: 25 },
       '26.3': { loader: '0.19.5', java: 25 },
     },
-    mod: { file: 'artifacts/minecraft-mcp.jar', sha256: 'abc123' },
+    mod: { file: 'artifacts/minecraft-control.jar', sha256: 'abc123' },
   }));
 
   const manifest = await readManifest(root);

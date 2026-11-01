@@ -1,4 +1,4 @@
-package com.mizius.mcp
+package com.mizius.control
 
 import net.minecraft.client.MouseHandler
 import java.lang.reflect.InvocationTargetException

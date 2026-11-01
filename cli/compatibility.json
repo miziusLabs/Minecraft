@@ -11,7 +11,7 @@
     }
   },
   "mod": {
-    "file": "artifacts/minecraft-mcp.jar",
-    "sha256": "8bfa3830bc6fb8c0ae717087e4c5fae2caebdc67b040c214ba0af7e97d7c5646"
+    "file": "artifacts/minecraft-control.jar",
+    "sha256": "e5ea5cb873aab096ef65b925d13ffbc4270ab8cf811354304d9f8130659fc139"
   }
 }

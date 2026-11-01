@@ -114,7 +114,7 @@ test('stopClient checks the start time and handles long process command lines', 
     instance,
     version: '26.3',
     log: path.join(root, 'launcher.log'),
-    url: 'http://127.0.0.1:8765/mcp',
+    port: 8765,
   };
 
   await stopClient({

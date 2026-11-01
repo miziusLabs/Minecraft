@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$temporaryDirectory = Join-Path ([IO.Path]::GetTempPath()) ('minecraft-mcp-build-' + [guid]::NewGuid())
+$temporaryDirectory = Join-Path ([IO.Path]::GetTempPath()) ('minecraft-control-build-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temporaryDirectory | Out-Null
 $initScript = Join-Path $temporaryDirectory 'artifact.gradle'
 $artifactRecord = Join-Path $temporaryDirectory 'artifact.txt'

@@ -1,35 +1,35 @@
 # @mizius/minecraft
 
-`@mizius/minecraft` is a Windows x64 command line launcher for an isolated Minecraft Java client with the Minecraft MCP Fabric mod installed. It installs game files into a managed directory, uses the bundled mod for Minecraft 26.2 and 26.3, and exposes the running client on loopback. The default MCP URL is `http://127.0.0.1:8765/mcp`.
+`@mizius/minecraft` is a Windows x64 command line tool for launching and controlling an isolated Minecraft Java client. It installs Minecraft, Fabric Loader, Java, and the bundled control mod into a managed directory. The CLI sends commands to the running game over loopback.
 
 ## Requirements
 
 - Windows x64.
 - Node.js 22 or newer.
-- A network connection for the first launch, so the CLI can download Minecraft, Fabric Loader, Java, libraries, and assets.
+- A network connection on first launch to download Minecraft, Fabric Loader, Java, libraries, and assets.
 
-The CLI starts an offline profile with the requested username. It does not sign in to a Microsoft account. Multiplayer servers and Realms that require authenticated online accounts will reject this profile. Authentication and Realms errors in client logs are expected when connecting to those services. Local single player works without account authentication. The cached client can start without a network connection after its required files have downloaded.
+The CLI starts an offline profile. It does not sign in to a Microsoft account. Multiplayer servers and Realms that require an authenticated account will reject this profile. Local single player works without account authentication. The cached client can start without a network connection after its required files have downloaded.
 
 ## Install
 
-Download the `minecraft.tgz` asset from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest). Open a terminal in the download directory and install it globally with npm. No npm account or GitHub token is required for a public release.
+Download `minecraft.tgz` from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest). Open a terminal in the download directory and install the package globally with npm.
 
 ```powershell
 npm install --global ./minecraft.tgz
 ```
 
-To update, download `minecraft.tgz` from the new release and repeat the install command. Previous versions remain on the [releases page](https://github.com/miziusLabs/Minecraft/releases). npm still downloads dependencies from the public npm registry.
+To update, download the new `minecraft.tgz` release asset and repeat the install command. No npm account or GitHub token is required for a public release.
 
-List the supported versions.
+List supported versions and the current default.
 
 ```powershell
-minecraft versions
+minecraft versions --json
 ```
 
 Launch the default version, 26.3.
 
 ```powershell
-minecraft launch --username Agent
+minecraft launch --username Agent --json
 ```
 
 Select 26.2 explicitly.
@@ -38,46 +38,49 @@ Select 26.2 explicitly.
 minecraft launch 26.2 --username Agent
 ```
 
-By default, launch keeps the Minecraft window visible without taking focus. It does not minimize the window. Add `--foreground` when you want Minecraft to take focus at startup.
+The launch command waits for the local command endpoint and returns the client process, instance directory, log path, and port. Use `minecraft status --json` to inspect the running client. Use `minecraft stop` to stop it before switching versions.
 
-`launch`, `status`, and `stop` print JSON results. Add `--json` for compact output. The CLI waits for the MCP server at the selected port before reporting the client as ready. The result includes a `url` field. Configure the MCP host with that URL. `status --json` reports the same URL while the client runs.
+## Control the game
 
-The default port is 8765. If another client already uses it, leave that client running and choose another free port with `--port`.
+Run a CLI command after launch. Every command returns JSON, and `--json` prints compact JSON for agent use.
 
 ```powershell
-minecraft launch --username Agent --port 18766
+minecraft control state --json
+minecraft control screenshot --output .\screen.png
+minecraft control join localhost:25565
+minecraft control click 640 360 --button left
+minecraft control key W --action hold
+minecraft control key W --action release
+minecraft control type "hello"
+minecraft control logs warn --limit 20
+minecraft control batch '[{"command":"key","arguments":{"key":"W","action":"hold"},"delay_ms":1000},{"command":"key","arguments":{"key":"W","action":"release"}]'
 ```
 
-The CLI reserves loopback TCP port 18765 while it installs, starts, or stops a client to serialize lifecycle operations across managed directories. Keep that port free. Do not use it as the MCP port. If launch reports a conflict on the selected MCP port, choose another free port and retry.
+`minecraft control state` reports the current screen, connection, window dimensions, held inputs, and player position. `minecraft control screenshot` saves a PNG in the current directory. By default it uses a timestamped filename. Use `--output` to select a path.
 
-## Managed files
+Coordinates use screenshot pixels with the origin at the top left. `minecraft control click` accepts `left`, `right`, or `middle`. Keys accept GLFW names such as `W`, `LEFT_SHIFT`, `ENTER`, and `ESCAPE`, or a numeric GLFW code. A key press releases after a short tap. Use `--action hold` and `--action release` for sustained movement. Held keys and buttons expire after 30 seconds without a game command.
 
-By default, the CLI keeps downloaded files, per-version instances, logs, and process state under `%LOCALAPPDATA%\mizius\Minecraft`. Set `mizius_minecraft_home` to use a different root. Each Minecraft version gets a separate instance directory.
+Use `minecraft control execute <command>` only when the connected server grants the required permission. Use `minecraft control logs [query]` to read recent client log lines. A query matches a case-insensitive literal substring. `minecraft control batch` accepts a JSON array of commands and runs them in order without interleaving other controls.
+
+Run `minecraft --help` for all commands and options. Agents call these commands through their shell without a separate host configuration.
+
+## Managed files and settings
+
+By default, the CLI stores downloaded files, per-version instances, logs, and process state under `%LOCALAPPDATA%\mizius\Minecraft`. Set `mizius_minecraft_home` to use a different root. Each Minecraft version gets a separate instance directory.
 
 The CLI creates settings only when an instance has no `options.txt`. It opens a 1280 by 720 window with GUI scale 2 and FOV 90. Sprint uses R. Master volume is muted, and pause on focus loss is disabled. The CLI leaves existing `options.txt` files in place.
 
 Graphics use the Custom preset, with clouds, ambient occlusion, and entity shadows off. Render distance is 8 chunks, simulation distance is 5 chunks, and the frame rate is capped at 60 FPS. Java uses a 4 GB maximum heap.
 
-## MCP connection
+The default command port is 8765. If another program uses it, leave that program running and choose a free port with `--port`.
 
-After the CLI reports that the client is ready, configure your MCP host with the `url` returned by `minecraft launch` or `minecraft status`.
-
-```json
-{
-  "mcpServers": {
-    "minecraft": {
-      "type": "http",
-      "url": "http://127.0.0.1:8765/mcp"
-    }
-  }
-}
+```powershell
+minecraft launch --username Agent --port 18766
 ```
 
-The example uses the default port. Replace it with the returned URL when you pass `--port`. The host connects to the existing Minecraft process. It does not launch or own the game process. Use `minecraft status` to inspect it and `minecraft stop` to stop the managed process. Stop the managed client before switching versions.
+The CLI reserves loopback TCP port 18765 while it installs, starts, or stops a client to serialize lifecycle operations across managed directories. Keep that port free. Do not use it as the command port.
 
-The MCP endpoint controls one client and one shared set of held inputs. Connect one agent at a time. Release held keys and mouse buttons when an action ends. The mod also releases stale inputs after 30 seconds without game tool calls. Check `get_state` or take a screenshot after connecting, joining a server, or changing screens before sending more input.
-
-The bundled skill describes this launch and control workflow. `minecraft skill path` prints the directory containing `SKILL.md`. Copy it into another skill directory with `minecraft skill install --dir <directory>`.
+Set `MINECRAFT_CONTROL_TOKEN` in the environment to require bearer-token authorization on the local command endpoint. The CLI sends the token automatically.
 
 ## Development
 
@@ -88,11 +91,11 @@ npm install
 npm run build
 ```
 
-The CLI sources and tests live in this directory. The Fabric mod and its Gradle wrapper live in `../mod`. The skill source lives in `../skills/minecraft/SKILL.md`. `npm run build` compiles the CLI and copies that skill into the package staging directory `skills/minecraft`.
+The CLI sources and tests live here. The Fabric mod and its Gradle wrapper live in `../mod`. The agent skill source lives in `../skills/minecraft/SKILL.md`. `npm run build` compiles the CLI and copies the skill into the package staging directory `skills/minecraft`.
 
-`npm pack` builds the CLI and the Gradle project in `../mod`, copies the production mod JAR into `artifacts/minecraft-mcp.jar`, and updates its SHA-256 field in `compatibility.json`. The package includes the compiled CLI, bundled mod, compatibility manifest, README, and skill. It has no `preinstall`, `install`, or `prepare` hook. Installing the package does not download Minecraft or start the game.
+`npm pack` builds the CLI and the Gradle project in `../mod`, copies the production mod JAR into `artifacts/minecraft-control.jar`, and updates its SHA-256 field in `compatibility.json`. The package includes the compiled CLI, bundled mod, compatibility manifest, README, and skill. It has no `preinstall`, `install`, or `prepare` hook. Installing the package does not download Minecraft or start the game.
 
-Run the CLI tests with `npm test`.
+Run the CLI test suite with `npm test`.
 
 ## Publishing
 
@@ -106,6 +109,6 @@ npm version patch --no-git-tag-version
 
 Use `minor` or `major` instead of `patch` when appropriate. Commit `package.json` and `package-lock.json`, then merge into `main`.
 
-When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. There are no separate mod compatibility jobs. Packaging still builds the mod JAR that the CLI bundles. After they pass, it creates the tag `v<version>` at the tested commit and attaches the tested `minecraft.tgz` archive without rebuilding it. GitHub generates the release notes. Existing release tags must not be reused.
+When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. Packaging builds the mod JAR that the CLI bundles. After checks pass, it creates the tag `v<version>` at the tested commit and attaches the tested `minecraft.tgz` archive without rebuilding it. GitHub generates the release notes. Existing release tags must not be reused.
 
-Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. No `NPM_TOKEN`, npm trusted publisher, or additional secret is needed. The old npm publishing workflow has been removed. Use a public repository so users can download release assets without authentication.
+Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. The public repository lets users download release assets without authentication.

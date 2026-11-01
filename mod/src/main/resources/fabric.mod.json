@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "id": "minecraft_mcp",
+  "id": "minecraft_control",
   "version": "${version}",
-  "name": "Minecraft MCP",
+  "name": "Minecraft Control",
   "description": "Local agent control of Minecraft gameplay and interfaces.",
   "environment": "client",
-  "entrypoints": { "client": ["com.mizius.mcp.McpMod"] },
-  "mixins": ["minecraft-mcp.mixins.json"],
+  "entrypoints": { "client": ["com.mizius.control.ControlMod"] },
+  "mixins": ["minecraft-control.mixins.json"],
   "depends": { "fabricloader": ">=0.19.3", "minecraft": ["26.2", "26.3"], "java": ">=25" }
 }

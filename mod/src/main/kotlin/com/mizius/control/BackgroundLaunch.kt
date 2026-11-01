@@ -1,10 +1,10 @@
-package com.mizius.mcp
+package com.mizius.control
 
 /** Keep the game visible and focusable without activating it during launch. */
 object BackgroundLaunch {
     private var focusQuery: ((Long) -> Boolean)? = null
 
-    fun enabled() = java.lang.Boolean.getBoolean("minecraft.mcp.background")
+    fun enabled() = java.lang.Boolean.getBoolean("minecraft.control.background")
 
     fun focused(handle: Long): Boolean = focusQuery?.invoke(handle) ?: false
 

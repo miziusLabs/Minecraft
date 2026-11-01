@@ -2,9 +2,9 @@
 @file:JvmName("WindowCreationMixin")
 @file:Mixin(Window::class)
 
-package com.mizius.mcp.mixin
+package com.mizius.control.mixin
 
-import com.mizius.mcp.BackgroundLaunch
+import com.mizius.control.BackgroundLaunch
 import com.mojang.blaze3d.platform.Window
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.injection.At
@@ -17,6 +17,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
     at = [At(value = "INVOKE", target = "Lorg/lwjgl/glfw/GLFW;glfwCreateWindow(IILjava/lang/CharSequence;JJ)J", remap = false)],
     require = 0
 )
-private fun `mcp$backgroundGlfw`(ci: CallbackInfoReturnable<Long>) {
+private fun `control$backgroundGlfw`(ci: CallbackInfoReturnable<Long>) {
     BackgroundLaunch.configureGlfw()
 }

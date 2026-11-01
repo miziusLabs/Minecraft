@@ -1,4 +1,4 @@
-package com.mizius.mcp
+package com.mizius.control
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -25,7 +25,7 @@ class ClientLogs(private val context: LoggerContext = LoggerContext.getContext(f
     private val eventLayout = PatternLayout.newBuilder()
         .setPattern("[%d{HH:mm:ss}] [%t/%level] [%logger]: %msg%n%throwable")
         .build()
-    private val appender = object : AbstractAppender("minecraft-mcp-${UUID.randomUUID()}", null, eventLayout, true, Property.EMPTY_ARRAY) {
+    private val appender = object : AbstractAppender("minecraft-control-${UUID.randomUUID()}", null, eventLayout, true, Property.EMPTY_ARRAY) {
         override fun append(event: LogEvent) {
             val formatted = eventLayout.toSerializable(event)
             synchronized(lock) {

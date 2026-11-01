@@ -10,7 +10,7 @@ const cliDirectory = path.resolve(scriptDirectory, '..');
 const repositoryDirectory = path.resolve(cliDirectory, '..');
 const modDirectory = path.join(repositoryDirectory, 'mod');
 const artifactDirectory = path.join(cliDirectory, 'artifacts');
-const destination = path.join(artifactDirectory, 'minecraft-mcp.jar');
+const destination = path.join(artifactDirectory, 'minecraft-control.jar');
 const manifestPath = path.join(cliDirectory, 'compatibility.json');
 
 function runGradle(initScript, archivePathFile) {
@@ -67,8 +67,8 @@ async function main() {
 
     const jar = await readFile(destination);
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-    if (!manifest.mod || manifest.mod.file !== 'artifacts/minecraft-mcp.jar') {
-      throw new Error('The compatibility manifest must point to artifacts/minecraft-mcp.jar.');
+    if (!manifest.mod || manifest.mod.file !== 'artifacts/minecraft-control.jar') {
+      throw new Error('The compatibility manifest must point to artifacts/minecraft-control.jar.');
     }
     manifest.mod.sha256 = createHash('sha256').update(jar).digest('hex');
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
