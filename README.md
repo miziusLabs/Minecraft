@@ -22,6 +22,8 @@ minecraft control state --json
 
 The first launch downloads the required game files. The client uses an offline profile. Authenticated multiplayer servers and Realms require a signed-in account.
 
+Run `minecraft update` to install the latest stable CLI release. The CLI also checks for updates before starting each new client and resumes the launch after an update.
+
 Use the CLI commands to inspect and control the game.
 
 ```powershell

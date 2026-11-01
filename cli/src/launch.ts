@@ -46,9 +46,15 @@ export async function requireFreePort(port = 8765): Promise<void> {
   });
 }
 
+export function validateControlPort(port: number): void {
+  if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 18765) {
+    throw new Error('Port must be an integer from 1024 to 65535, excluding mutex port 18765.');
+  }
+}
+
 export async function launch(root: string, packageRoot: string, requested: string | undefined, username: string,
   progress: (message: string) => void, port = 8765, background = true): Promise<RunningClient> {
-  if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 18765) throw new Error('Port must be an integer from 1024 to 65535, excluding mutex port 18765.');
+  validateControlPort(port);
   const url = controlUrl(port);
   const manifest = await readManifest(packageRoot);
   const { version, compatibility } = resolveVersion(manifest, requested);

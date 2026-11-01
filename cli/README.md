@@ -8,7 +8,7 @@
 - Node.js 22 or newer.
 - A network connection on first launch to download Minecraft, Fabric Loader, Java, libraries, and assets.
 
-The CLI starts an offline profile. It does not sign in to a Microsoft account. Multiplayer servers and Realms that require an authenticated account will reject this profile. Local single player works without account authentication. The cached client can start without a network connection after its required files have downloaded.
+The CLI starts an offline profile. It does not sign in to a Microsoft account. Multiplayer servers and Realms that require an authenticated account will reject this profile. Local single player works without account authentication. The cached client can start without a network connection after its required files have downloaded. Each new `minecraft launch` checks GitHub for a CLI update for up to five seconds. If GitHub is unavailable, launch continues with the installed version.
 
 ## Install
 
@@ -18,7 +18,14 @@ Download `minecraft.tgz` from the [latest GitHub release](https://github.com/miz
 npm install --global ./minecraft.tgz
 ```
 
-To update, download the new `minecraft.tgz` release asset and repeat the install command. No npm account or GitHub token is required for a public release.
+Run `minecraft update` to install the latest stable CLI release now. The CLI also installs new releases automatically before starting a new Minecraft client, then resumes the launch command. Automatic update failures leave the installed CLI in place and do not block a launch. No npm account or GitHub token is required for a public GitHub release.
+
+```powershell
+minecraft update
+minecraft update --json
+```
+
+The update command reports the previous and installed package versions and whether it installed an update. Self-updates require the global npm installation shown above.
 
 List supported versions and the current default.
 
@@ -93,7 +100,7 @@ npm run build
 
 The CLI sources and tests live here. The Fabric mod and its Gradle wrapper live in `../mod`. The agent skill source lives in `../skills/minecraft/SKILL.md`. `npm run build` compiles the CLI and copies the skill into the package staging directory `skills/minecraft`.
 
-`npm pack` builds the CLI and the Gradle project in `../mod`, copies the production mod JAR into `artifacts/minecraft-control.jar`, and updates its SHA-256 field in `compatibility.json`. The package includes the compiled CLI, bundled mod, compatibility manifest, README, and skill. It has no `preinstall`, `install`, or `prepare` hook. Installing the package does not download Minecraft or start the game.
+`npm pack` builds the CLI and the Gradle project in `../mod`, copies the production mod JAR into `artifacts/minecraft-control.jar`, and updates its SHA-256 field in `compatibility.json`. The package includes the compiled CLI, bundled mod, compatibility manifest, README, and skill. It has no `preinstall`, `install`, or `prepare` hook. Installing the package does not download Minecraft or start the game. The CLI checks for updates only when `minecraft update` or `minecraft launch` runs.
 
 Run the CLI test suite with `npm test`.
 

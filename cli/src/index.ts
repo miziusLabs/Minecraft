@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { readManifest } from './core.js';
-import { command as controlCommand, controlReady, controlUrl, launch, stop } from './launch.js';
-import { running } from './process.js';
+import { command as controlCommand, controlReady, controlUrl, launch, stop, validateControlPort } from './launch.js';
+import { acquireLock, running } from './process.js';
 import type { RunningClient } from './process.js';
+import { attemptAutomaticUpdate, relaunchCli, updateCli } from './update.js';
 
 function describe(record: RunningClient) {
   return { pid: record.identity.pid, version: record.version, instance: record.instance, log: record.log, port: record.port };
@@ -16,6 +18,7 @@ const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const help = `Minecraft command line
 
   minecraft versions [--json]
+  minecraft update [--json]
   minecraft launch [version] [--username Agent] [--port 8765] [--foreground] [--json]
   minecraft status [--json]
   minecraft stop [--json]
@@ -98,14 +101,41 @@ async function main(): Promise<void> {
     const manifest = await readManifest(packageRoot);
     output({ defaultVersion: manifest.defaultVersion, versions: Object.keys(manifest.versions) }); return;
   }
-  if (isControl ? !['state', 'screenshot', 'join', 'click', 'move', 'drag', 'scroll', 'key', 'type', 'execute', 'logs', 'batch'].includes(commandName ?? '') : !['launch', 'status', 'stop'].includes(commandName ?? '')) {
+  if (isControl ? !['state', 'screenshot', 'join', 'click', 'move', 'drag', 'scroll', 'key', 'type', 'execute', 'logs', 'batch'].includes(commandName ?? '') : !['launch', 'status', 'stop', 'update'].includes(commandName ?? '')) {
     throw new Error(isControl ? `Unknown control command ${commandName}. Run minecraft --help.` : `Unknown command ${commandName}. Run minecraft --help.`);
   }
   requireClientPlatform();
+  if (!isControl && commandName === 'update') {
+    if (positionals.length !== 1) throw new Error('Use minecraft update.');
+    const release = await acquireLock(os.tmpdir());
+    try { output(await updateCli(packageRoot, { progress: message => console.error(message) })); }
+    finally { await release(); }
+    return;
+  }
   const root = managedRoot();
   if (commandName === 'launch') {
     if (rest.length) throw new Error('Use minecraft launch [version].');
-    output(describe(await launch(root, packageRoot, argument, values.username ?? 'Agent', message => console.error(message), values.port === undefined ? 8765 : Number(values.port), !values.foreground))); return;
+    const port = values.port === undefined ? 8765 : Number(values.port);
+    validateControlPort(port);
+    const release = await acquireLock(root);
+    let updated = false;
+    try {
+      if (!(await running(root))) {
+        const attempt = await attemptAutomaticUpdate(packageRoot, { progress: message => console.error(message) });
+        if (attempt.error) {
+          if (attempt.fatal) throw attempt.error;
+          console.error(`Automatic update skipped. ${attempt.error.message}`);
+        }
+        updated = attempt.result?.updated ?? false;
+      }
+    } finally { await release(); }
+    if (updated) {
+      const entrypoint = process.argv[1];
+      if (!entrypoint) throw new Error('Could not locate the updated CLI entrypoint.');
+      process.exitCode = await relaunchCli(entrypoint, process.execArgv, process.argv.slice(2));
+      return;
+    }
+    output(describe(await launch(root, packageRoot, argument, values.username ?? 'Agent', message => console.error(message), port, !values.foreground))); return;
   }
   if (commandName === 'stop') {
     if (argument !== undefined) throw new Error('Use minecraft stop.');

@@ -17,6 +17,7 @@ async function run(...args: string[]): Promise<{ stdout: string; stderr: string 
 test('CLI prints help and lists bundled versions as JSON without launching a client', async () => {
   const help = await run('--help');
   assert.match(help.stdout, /minecraft launch \[version\]/);
+  assert.match(help.stdout, /minecraft update/);
   assert.match(help.stdout, /minecraft skill install/);
 
   const result = await run('versions', '--json');
@@ -24,6 +25,21 @@ test('CLI prints help and lists bundled versions as JSON without launching a cli
     defaultVersion: '26.3',
     versions: ['26.2', '26.3'],
   });
+});
+
+test('CLI explains that self-update requires the documented global npm installation', async (t) => {
+  if (process.platform !== 'win32' || process.arch !== 'x64') {
+    t.skip('The managed CLI currently supports Windows x64 only.');
+    return;
+  }
+
+  await assert.rejects(
+    run('update', '--json'),
+    error => {
+      assert.match(String((error as { stderr?: string }).stderr), /Self-update requires the documented global npm installation/);
+      return true;
+    },
+  );
 });
 
 test('CLI skill install replaces an existing skill with the packaged version', async (t) => {

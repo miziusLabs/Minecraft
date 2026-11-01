@@ -1,6 +1,6 @@
 {
   "name": "@mizius/minecraft",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Launch and control an isolated Minecraft client from the command line.",
   "homepage": "https://github.com/miziusLabs/Minecraft",
   "repository": {
