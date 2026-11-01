@@ -121,5 +121,18 @@ jobs:
           git show-ref --verify --quiet "refs/tags/v$env:RELEASE_VERSION"
           if ($LASTEXITCODE -eq 0) { throw 'Release tag already exists. Bump the package version again.' }
           if ($LASTEXITCODE -ne 1) { throw 'Could not check the release tag.' }
-          gh release create "v$env:RELEASE_VERSION" $package[0].FullName --target $env:RELEASE_COMMIT --title "Minecraft CLI v$env:RELEASE_VERSION" --generate-notes --latest
+          $generatedNotesJson = gh api --method POST "repos/$env:GH_REPO/releases/generate-notes" -f tag_name="v$env:RELEASE_VERSION" -f target_commitish=$env:RELEASE_COMMIT
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $generatedNotes = $generatedNotesJson | ConvertFrom-Json
+          $changes = @(
+            foreach ($line in ($generatedNotes.body -split "`r?`n")) {
+              if ($line -match '^\s*\*\s+(?<title>.+?)\s+(?:by\s+@\S+\s+)?in\s+(?<url>https://github\.com/\S+)\s*$') {
+                "- $($Matches.title.ToLowerInvariant()) ($($Matches.url))"
+              }
+            }
+          )
+          $releaseNotes = @('## Changes', '') + $changes
+          $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          Set-Content -LiteralPath $notesPath -Value $releaseNotes -Encoding utf8
+          gh release create "v$env:RELEASE_VERSION" $package[0].FullName --target $env:RELEASE_COMMIT --title "Minecraft CLI v$env:RELEASE_VERSION" --notes-file $notesPath --latest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
