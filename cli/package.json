@@ -5,7 +5,8 @@
   "homepage": "https://github.com/miziusLabs/Minecraft",
   "repository": {
     "type": "git",
-    "url": "https://github.com/miziusLabs/Minecraft.git"
+    "url": "https://github.com/miziusLabs/Minecraft.git",
+    "directory": "cli"
   },
   "type": "module",
   "bin": {
@@ -25,7 +26,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/package-skill.mjs",
     "test": "npm run build && node --test --experimental-strip-types test/*.test.ts",
     "prepack": "npm run build && node scripts/package-mod.mjs"
   },

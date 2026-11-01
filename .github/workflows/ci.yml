@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  mod:
+    name: Mod on Minecraft ${{ matrix.minecraft }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['26.2', '26.3']
+    defaults:
+      run:
+        working-directory: mod
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Build and test the mod
+        run: .\gradlew.bat --no-daemon build "-Pminecraft_version=${{ matrix.minecraft }}"
+
+  cli:
+    name: CLI and npm package on Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+      - run: npm ci
+      - run: npm test
+      - name: Build the distributable npm package
+        run: |
+          New-Item -ItemType Directory -Path artifacts/npm -Force | Out-Null
+          npm pack --pack-destination artifacts/npm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify the packed CLI can run
+        run: |
+          $package = @(Get-ChildItem artifacts/npm/*.tgz)
+          if ($package.Count -ne 1) { throw 'Expected exactly one npm package.' }
+          $installation = Join-Path $env:RUNNER_TEMP 'minecraft-package-smoke'
+          npm install --prefix $installation --ignore-scripts --no-audit --no-fund $package[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & (Join-Path $installation 'node_modules/.bin/minecraft.cmd') --help
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & (Join-Path $installation 'node_modules/.bin/minecraft.cmd') versions --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: cli/artifacts/npm/*.tgz
+          if-no-files-found: error
+          retention-days: 7

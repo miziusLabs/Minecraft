@@ -29,7 +29,7 @@ test('CLI prints help and lists bundled versions as JSON without launching a cli
 test('CLI skill install copies the packaged skill without overwriting an existing one', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mizius-cli-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const sourcePath = fileURLToPath(new URL('../skills/minecraft/SKILL.md', import.meta.url));
+  const sourcePath = fileURLToPath(new URL('../../skills/minecraft/SKILL.md', import.meta.url));
   const source = await readFile(sourcePath, 'utf8');
 
   const result = await run('skill', 'install', '--dir', root, '--json');

@@ -86,6 +86,26 @@ npm install
 npm run build
 ```
 
-`npm pack` runs the Gradle production build, copies the production mod JAR into `artifacts/minecraft-mcp.jar`, and updates its SHA-256 field in `compatibility.json`. The package includes the compiled CLI, bundled mod, compatibility manifest, README, and skill. It has no `preinstall`, `install`, or `prepare` hook. Installing the package does not download Minecraft or start the game.
+The CLI sources and tests live in this directory. The Fabric mod and its Gradle wrapper live in `../mod`. The skill source lives in `../skills/minecraft/SKILL.md`. `npm run build` compiles the CLI and copies that skill into the package staging directory `skills/minecraft`.
+
+`npm pack` builds the CLI and the Gradle project in `../mod`, copies the production mod JAR into `artifacts/minecraft-mcp.jar`, and updates its SHA-256 field in `compatibility.json`. The package includes the compiled CLI, bundled mod, compatibility manifest, README, and skill. It has no `preinstall`, `install`, or `prepare` hook. Installing the package does not download Minecraft or start the game.
 
 Run the CLI tests with `npm test`.
+
+## Publishing
+
+The `publish-npm.yml` GitHub Actions workflow publishes stable GitHub releases tagged `cli-v<version>`, such as `cli-v1.0.0`. The tag must match this package's version, and the tagged commit must belong to `main`. Prereleases and releases with other tag names do not publish this package.
+
+Before each release, update the version in `package.json` and `package-lock.json`, then merge the changes into `main`. Create the matching tag on that commit and publish its GitHub release. The workflow runs the Windows CLI tests, both mod compatibility builds, and package installation checks. It publishes the tested npm archive with provenance, without rebuilding it in the publishing job.
+
+For the first publication, add a GitHub Actions repository secret named `NPM_TOKEN` with permission to publish `@mizius/minecraft`. Use an npm granular access token that permits publishing without an interactive two-factor prompt. The npm account must have access to the `@mizius` scope.
+
+After the package exists, configure a GitHub Actions trusted publisher in its npm settings. Use the following values, enable the `npm publish` permission, and leave the environment field empty.
+
+| Setting | Value |
+| --- | --- |
+| Organization or user | `miziusLabs` |
+| Repository | `Minecraft` |
+| Workflow filename | `publish-npm.yml` |
+
+Remove the repository's `NPM_TOKEN` secret once trusted publishing is configured. Later releases authenticate through GitHub OIDC. See [npm's trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/) for the npm settings.

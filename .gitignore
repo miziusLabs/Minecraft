@@ -7,5 +7,6 @@ __pycache__/
 *.log
 cli/node_modules/
 cli/dist/
+cli/skills/
 cli/artifacts/minecraft-mcp.jar
 cli/*.tgz
