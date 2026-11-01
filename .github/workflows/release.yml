@@ -89,6 +89,9 @@ jobs:
           New-Item -ItemType Directory -Path artifacts/npm -Force | Out-Null
           npm pack --pack-destination artifacts/npm
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $package = @(Get-ChildItem artifacts/npm/*.tgz)
+          if ($package.Count -ne 1) { throw 'Expected exactly one npm package.' }
+          Rename-Item -LiteralPath $package[0].FullName -NewName minecraft.tgz
       - name: Verify the packed CLI can run
         run: |
           $package = @(Get-ChildItem artifacts/npm/*.tgz)

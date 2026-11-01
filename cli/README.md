@@ -12,13 +12,13 @@ The CLI starts an offline profile with the requested username. It does not sign 
 
 ## Install
 
-Download the `.tgz` asset from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest). Open a terminal in the download directory and install it globally with npm. Replace the example filename with the version you downloaded. No npm account or GitHub token is required for a public release.
+Download the `minecraft.tgz` asset from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest). Open a terminal in the download directory and install it globally with npm. No npm account or GitHub token is required for a public release.
 
 ```powershell
-npm install --global ./mizius-minecraft-1.0.0.tgz
+npm install --global ./minecraft.tgz
 ```
 
-To update, download the new release and repeat the install command with its filename. Previous versions remain on the [releases page](https://github.com/miziusLabs/Minecraft/releases). npm still downloads dependencies from the public npm registry.
+To update, download `minecraft.tgz` from the new release and repeat the install command. Previous versions remain on the [releases page](https://github.com/miziusLabs/Minecraft/releases). npm still downloads dependencies from the public npm registry.
 
 List the supported versions.
 
@@ -106,6 +106,6 @@ npm version patch --no-git-tag-version
 
 Use `minor` or `major` instead of `patch` when appropriate. Commit `package.json` and `package-lock.json`, then merge into `main`.
 
-When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. There are no separate mod compatibility jobs. Packaging still builds the mod JAR that the CLI bundles. After they pass, it creates the tag `v<version>` at the tested commit and attaches the tested `mizius-minecraft-<version>.tgz` archive without rebuilding it. GitHub generates the release notes. Existing release tags must not be reused.
+When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. There are no separate mod compatibility jobs. Packaging still builds the mod JAR that the CLI bundles. After they pass, it creates the tag `v<version>` at the tested commit and attaches the tested `minecraft.tgz` archive without rebuilding it. GitHub generates the release notes. Existing release tags must not be reused.
 
 Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. No `NPM_TOKEN`, npm trusted publisher, or additional secret is needed. The old npm publishing workflow has been removed. Use a public repository so users can download release assets without authentication.
