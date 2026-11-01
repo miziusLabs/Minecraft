@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      needed: ${{ steps.version.outputs.needed }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Compare with the latest GitHub release
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('cli/package.json', 'utf8'));
+          if (pkg.name !== '@mizius/minecraft') throw new Error('Unexpected package name.');
+          const stable = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+          let needed = false;
+          if (stable.test(pkg.version)) {
+            const response = await fetch(process.env.GITHUB_API_URL + '/repos/' + process.env.GITHUB_REPOSITORY + '/releases/latest', {
+              headers: { Authorization: 'Bearer ' + process.env.GH_TOKEN, Accept: 'application/vnd.github+json' }
+            });
+            if (response.status === 404) {
+              needed = true;
+            } else {
+              if (!response.ok) throw new Error('Cannot read latest release. HTTP ' + response.status);
+              const release = await response.json();
+              const latest = release.tag_name.replace(/^v/, '');
+              if (!stable.test(latest)) throw new Error('Latest release must use a stable version tag.');
+              const currentParts = pkg.version.split('.').map(BigInt);
+              const latestParts = latest.split('.').map(BigInt);
+              const difference = currentParts.findIndex((part, index) => part !== latestParts[index]);
+              needed = difference >= 0 && currentParts[difference] > latestParts[difference];
+            }
+          }
+          console.log(needed ? 'A new release is needed.' : 'No new stable release is needed.');
+          appendFileSync(process.env.GITHUB_OUTPUT, 'needed=' + needed + '\nversion=' + pkg.version + '\n');
+          NODE
+
+  release:
+    name: Build and publish release
+    needs: version
+    if: needs.version.outputs.needed == 'true'
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+      - run: npm ci
+      - run: npm test
+      - name: Build the distributable npm package
+        run: |
+          New-Item -ItemType Directory -Path artifacts/npm -Force | Out-Null
+          npm pack --pack-destination artifacts/npm
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify the packed CLI can run
+        run: |
+          $package = @(Get-ChildItem artifacts/npm/*.tgz)
+          if ($package.Count -ne 1) { throw 'Expected exactly one npm package.' }
+          $installation = Join-Path $env:RUNNER_TEMP 'minecraft-package-smoke'
+          npm install --prefix $installation --ignore-scripts --no-audit --no-fund $package[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & (Join-Path $installation 'node_modules/.bin/minecraft.cmd') --help
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & (Join-Path $installation 'node_modules/.bin/minecraft.cmd') versions --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Publish the tested package as a GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          $package = @(Get-ChildItem artifacts/npm/*.tgz)
+          if ($package.Count -ne 1) { throw 'Expected exactly one npm package.' }
+          $manifest = tar -xOf $package[0].FullName package/package.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $metadata = $manifest | ConvertFrom-Json
+          if ($metadata.name -ne '@mizius/minecraft' -or $metadata.version -ne $env:RELEASE_VERSION) {
+            throw 'Packed package does not match the release version.'
+          }
+          git show-ref --verify --quiet "refs/tags/v$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -eq 0) { throw 'Release tag already exists. Bump the package version again.' }
+          if ($LASTEXITCODE -ne 1) { throw 'Could not check the release tag.' }
+          gh release create "v$env:RELEASE_VERSION" $package[0].FullName --target $env:RELEASE_COMMIT --title "Minecraft CLI v$env:RELEASE_VERSION" --generate-notes --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

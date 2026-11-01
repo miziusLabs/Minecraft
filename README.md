@@ -45,6 +45,6 @@ npm pack
 
 ## Releases
 
-Pushes to every branch run the Windows CLI tests, mod compatibility builds, and package installation checks through `ci.yml`. When a push to `main` increases the stable version in `cli/package.json`, the same workflow creates a GitHub release tagged `v<version>` and attaches the tested `.tgz` package after all checks pass.
+The `release.yml` workflow runs on pushes to `main` and can also run manually on `main`. It compares the stable version in `cli/package.json` with the latest GitHub release. If the version is newer, or no release exists, it builds and publishes a release tagged `v<version>` with the packaged `.tgz` attached. Otherwise it skips the build.
 
 See [the CLI release instructions](cli/README.md#publishing) for version updates and release permissions. Publishing and installing public releases do not require an npm account.

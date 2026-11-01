@@ -96,7 +96,7 @@ Run the CLI tests with `npm test`.
 
 ## Publishing
 
-The `ci.yml` GitHub Actions workflow creates a GitHub release when a push to `main` increases the stable version in `cli/package.json`. Changes to other package fields and prerelease versions do not publish. Version decreases fail the release check.
+The `release.yml` workflow runs on pushes to `main` and supports manual runs on `main` through GitHub Actions. It compares `cli/package.json` with the latest published GitHub release. A newer stable version triggers a build. If there is no release yet, it publishes the first stable version. Equal versions, older versions, and prerelease versions skip the build. Release lookup errors fail the workflow.
 
 From the `cli` directory, update both version files without creating a local Git tag.
 
@@ -106,6 +106,6 @@ npm version patch --no-git-tag-version
 
 Use `minor` or `major` instead of `patch` when appropriate. Commit `package.json` and `package-lock.json`, then merge into `main`.
 
-The workflow runs the Windows CLI tests, both mod compatibility builds, and package installation checks. After they pass, it creates the tag `v<version>` at the tested commit and attaches the tested `mizius-minecraft-<version>.tgz` archive without rebuilding it. GitHub generates the release notes. Existing release tags must not be reused.
+When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. There are no separate mod compatibility jobs. Packaging still builds the mod JAR that the CLI bundles. After they pass, it creates the tag `v<version>` at the tested commit and attaches the tested `mizius-minecraft-<version>.tgz` archive without rebuilding it. GitHub generates the release notes. Existing release tags must not be reused.
 
 Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. No `NPM_TOKEN`, npm trusted publisher, or additional secret is needed. The old npm publishing workflow has been removed. Use a public repository so users can download release assets without authentication.
