@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { access, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import os from 'node:os';
 import path from 'node:path';
@@ -26,7 +26,7 @@ test('CLI prints help and lists bundled versions as JSON without launching a cli
   });
 });
 
-test('CLI skill install copies the packaged skill without overwriting an existing one', async (t) => {
+test('CLI skill install replaces an existing skill with the packaged version', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mizius-cli-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const sourcePath = fileURLToPath(new URL('../../skills/minecraft/SKILL.md', import.meta.url));
@@ -36,7 +36,8 @@ test('CLI skill install copies the packaged skill without overwriting an existin
   assert.deepEqual(JSON.parse(result.stdout), { installed: path.join(root, 'minecraft') });
   const installed = path.join(root, 'minecraft', 'SKILL.md');
   assert.equal(await readFile(installed, 'utf8'), source);
-  await assert.rejects(run('skill', 'install', '--dir', root), /already exists|EEXIST/i);
+  await writeFile(installed, '# Old Minecraft skill\n');
+  await run('skill', 'install', '--dir', root, '--json');
   assert.equal(await readFile(installed, 'utf8'), source);
 
   const pathResult = await run('skill', 'path');

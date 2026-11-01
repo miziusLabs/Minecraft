@@ -90,7 +90,7 @@ async function main(): Promise<void> {
     if (argument !== 'install' || !values.dir) throw new Error('Use minecraft skill install --dir <skills-directory>.');
     const directory = path.resolve(values.dir, 'minecraft');
     await mkdir(directory, { recursive: true });
-    await copyFile(source, path.join(directory, 'SKILL.md'), 1);
+    await copyFile(source, path.join(directory, 'SKILL.md'));
     output({ installed: directory }); return;
   }
   if (commandName === 'versions') {
