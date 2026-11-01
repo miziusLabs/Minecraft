@@ -94,9 +94,9 @@ Run the CLI tests with `npm test`.
 
 ## Publishing
 
-The `publish-npm.yml` GitHub Actions workflow publishes stable GitHub releases tagged `cli-v<version>`, such as `cli-v1.0.0`. The tag must match this package's version, and the tagged commit must belong to `main`. Prereleases and releases with other tag names do not publish this package.
+The `publish.yml` GitHub Actions workflow publishes when a push to `main` increases the stable version in `cli/package.json`. Changes to other package fields and prerelease versions do not publish.
 
-Before each release, update the version in `package.json` and `package-lock.json`, then merge the changes into `main`. Create the matching tag on that commit and publish its GitHub release. The workflow runs the Windows CLI tests, both mod compatibility builds, and package installation checks. It publishes the tested npm archive with provenance, without rebuilding it in the publishing job.
+Before each release, update the version in `package.json` and `package-lock.json`, then merge the changes into `main`. The workflow runs the Windows CLI tests, both mod compatibility builds, and package installation checks. It publishes the tested npm archive with provenance, without rebuilding it in the publishing job.
 
 For the first publication, add a GitHub Actions repository secret named `NPM_TOKEN` with permission to publish `@mizius/minecraft`. Use an npm granular access token that permits publishing without an interactive two-factor prompt. The npm account must have access to the `@mizius` scope.
 
@@ -106,6 +106,6 @@ After the package exists, configure a GitHub Actions trusted publisher in its np
 | --- | --- |
 | Organization or user | `miziusLabs` |
 | Repository | `Minecraft` |
-| Workflow filename | `publish-npm.yml` |
+| Workflow filename | `publish.yml` |
 
 Remove the repository's `NPM_TOKEN` secret once trusted publishing is configured. Later releases authenticate through GitHub OIDC. See [npm's trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/) for the npm settings.
