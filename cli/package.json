@@ -1,0 +1,40 @@
+{
+  "name": "@mizius/minecraft",
+  "version": "1.0.0",
+  "description": "Launch an isolated Minecraft client with the Minecraft MCP mod.",
+  "homepage": "https://github.com/miziusLabs/Minecraft",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miziusLabs/Minecraft.git"
+  },
+  "type": "module",
+  "bin": {
+    "minecraft": "dist/index.js"
+  },
+  "files": [
+    "dist/**",
+    "artifacts/minecraft-mcp.jar",
+    "compatibility.json",
+    "skills/minecraft/SKILL.md",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test --experimental-strip-types test/*.test.ts",
+    "prepack": "npm run build && node scripts/package-mod.mjs"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.1"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3"
+  }
+}
