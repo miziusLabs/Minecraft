@@ -1,6 +1,11 @@
 .gradle/
+.kotlin/
 build/
 run/
 .cache/
 __pycache__/
 *.log
+cli/node_modules/
+cli/dist/
+cli/artifacts/minecraft-mcp.jar
+cli/*.tgz

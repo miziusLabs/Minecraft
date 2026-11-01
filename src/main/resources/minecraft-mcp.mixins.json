@@ -2,6 +2,6 @@
   "required": true,
   "package": "com.mizius.mcp.mixin",
   "compatibilityLevel": "JAVA_25",
-  "client": ["KeyboardAccess", "MouseAccess", "MinecraftMixin", "InputConstantsMixin", "WindowMixin"],
+  "client": ["KeyboardAccess", "MouseAccess", "MinecraftMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin"],
   "injectors": { "defaultRequire": 1 }
 }

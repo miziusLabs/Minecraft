@@ -1,0 +1,17 @@
+{
+  "defaultVersion": "26.3",
+  "versions": {
+    "26.2": {
+      "loader": "0.19.5",
+      "java": 25
+    },
+    "26.3": {
+      "loader": "0.19.5",
+      "java": 25
+    }
+  },
+  "mod": {
+    "file": "artifacts/minecraft-mcp.jar",
+    "sha256": "8bfa3830bc6fb8c0ae717087e4c5fae2caebdc67b040c214ba0af7e97d7c5646"
+  }
+}

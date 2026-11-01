@@ -20,6 +20,25 @@ Minecraft MCP is a Kotlin Fabric mod for Minecraft Java 26.3 and 26.2, running o
 
 The server runs inside Minecraft and is available while the client is running. Launch your Fabric instance normally, then connect an agent using Streamable HTTP. Game interactions use Minecraft's internal APIs and execute on the client thread.
 
+## Project components
+
+- The Fabric mod in `src/main/kotlin` runs the MCP server inside the Minecraft client.
+- The npm package in `cli` launches an isolated Windows x64 client with the mod installed.
+- The bundled skill at `cli/skills/minecraft/SKILL.md` explains how an agent launches the client, connects to its MCP endpoint, checks game state, and releases held input.
+
+For the launcher, install Node.js 22 or newer, then install the package and start a client.
+
+```powershell
+npm install --global @mizius/minecraft
+minecraft launch --username Agent
+```
+
+The CLI supports Minecraft 26.2 and 26.3 and defaults to 26.3. It needs a network connection to download files on the first launch of each version. It starts an offline profile, so multiplayer servers and Realms that require Microsoft account authentication will reject it. Authentication and Realms errors in client logs are expected for those services.
+
+The CLI launches the Minecraft window in the background by default. The window stays visible and does not take focus. Add `--foreground` to let the window take focus when it starts.
+
+When the CLI reports that the client is ready, configure your MCP host with the returned `url`. The default URL is `http://127.0.0.1:8765/mcp`. If another client uses port 8765, leave it running and launch the managed client with `--port 18766` or another free port. See [the CLI README](cli/README.md) for commands and managed files.
+
 ## Features
 
 - Controls the keyboard and mouse in gameplay and GUI screens.
@@ -88,6 +107,7 @@ For MCP hosts that use the `mcpServers` configuration format, a connection can l
 - `minecraft.mcp.port` - JVM property for the local port, default `8765`. For example, `-Dminecraft.mcp.port=8766`.
 - `MINECRAFT_MCP_TOKEN` - Optional environment variable that enables bearer-token authentication.
 - `minecraft.mcp.token` - JVM property that overrides the environment token.
+- `minecraft.mcp.background` - Optional JVM property that starts the client window without taking focus while keeping it visible. Its default is `false`. The CLI sets it to `true` by default. Pass `--foreground` to opt out.
 
 When you configure a token, configure your MCP host to send `Authorization: Bearer <token>`. Requests from browser origins and requests with unexpected Host headers are rejected. The server binds only to `127.0.0.1`.
 
