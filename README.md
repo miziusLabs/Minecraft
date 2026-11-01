@@ -45,6 +45,6 @@ npm pack
 
 ## Releases
 
-Pull requests and pushes to `main` run the Windows CLI tests, mod compatibility checks, and npm packaging checks. npm publication runs when a GitHub release with a tag such as `cli-v1.0.0` is published. The tag must match the version in `cli/package.json`, and its commit must belong to `main`.
+Pushes to every branch run the Windows CLI tests, mod compatibility checks, and npm packaging checks through `ci.yml`. The `publish.yml` workflow publishes to npm when a push to `main` increases the stable version in `cli/package.json`. It runs the build checks before publishing.
 
 See [the CLI release instructions](cli/README.md#publishing) for npm authentication setup and the release process.
