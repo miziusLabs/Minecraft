@@ -8,21 +8,22 @@ import path from 'node:path';
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const cliDirectory = path.resolve(scriptDirectory, '..');
 const repositoryDirectory = path.resolve(cliDirectory, '..');
+const modDirectory = path.join(repositoryDirectory, 'mod');
 const artifactDirectory = path.join(cliDirectory, 'artifacts');
 const destination = path.join(artifactDirectory, 'minecraft-mcp.jar');
 const manifestPath = path.join(cliDirectory, 'compatibility.json');
 
 function runGradle(initScript, archivePathFile) {
-  const wrapper = path.join(repositoryDirectory, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
+  const wrapper = path.join(modDirectory, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
   const result = process.platform === 'win32'
     ? spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/c', `call "${wrapper}" --init-script "${initScript}" "-PcliArtifactPathFile=${archivePathFile}" writeCliJarArchivePath`], {
-      cwd: repositoryDirectory,
+      cwd: modDirectory,
       stdio: 'inherit',
       windowsHide: true,
       windowsVerbatimArguments: true,
     })
     : spawnSync('sh', [wrapper, '--init-script', initScript, `-PcliArtifactPathFile=${archivePathFile}`, 'writeCliJarArchivePath'], {
-      cwd: repositoryDirectory,
+      cwd: modDirectory,
       stdio: 'inherit',
     });
 
