@@ -126,8 +126,8 @@ jobs:
           $generatedNotes = $generatedNotesJson | ConvertFrom-Json
           $changes = @(
             foreach ($line in ($generatedNotes.body -split "`r?`n")) {
-              if ($line -match '^\s*\*\s+(?<title>.+?)\s+(?:by\s+@\S+\s+)?in\s+(?<url>https://github\.com/\S+)\s*$') {
-                "- $($Matches.title.ToLowerInvariant()) ($($Matches.url))"
+              if ($line -match '^\s*\*\s+(?<title>.+?)\s+(?:by\s+@\S+\s+)?in\s+https://github\.com/\S+\s*$') {
+                "- $($Matches.title.ToLowerInvariant())"
               }
             }
           )
@@ -144,7 +144,7 @@ jobs:
               foreach ($commit in $commits) {
                 $parts = $commit -split "`t", 2
                 if ($parts.Count -eq 2 -and $parts[0] -notmatch '^chore: bump version to ') {
-                  "- $($parts[0]) (https://github.com/$env:GH_REPO/commit/$($parts[1]))"
+                  "- $($parts[0])"
                 }
               }
             )

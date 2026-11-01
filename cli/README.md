@@ -116,6 +116,6 @@ npm version patch --no-git-tag-version
 
 Use `minor` or `major` instead of `patch` when appropriate. Commit `package.json` and `package-lock.json`, then merge into `main`.
 
-When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. Packaging builds the mod JAR that the CLI bundles. After checks pass, it creates the tag `v<version>` at the tested commit and attaches the tested `minecraft.tgz` archive without rebuilding it. Release notes list merged pull request titles and links under `## Changes`. When GitHub has no merged pull request notes, they list commit subjects and links since the previous release tag. They omit contributor names and full changelog links. Existing release tags must not be reused.
+When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. Packaging builds the mod JAR that the CLI bundles. After checks pass, it creates the tag `v<version>` at the tested commit and attaches the tested `minecraft.tgz` archive without rebuilding it. Release notes list merged pull request titles under `## Changes`. When GitHub has no merged pull request notes, they list commit subjects since the previous release tag. They omit contributor names and URLs. Existing release tags must not be reused.
 
 Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. The public repository lets users download release assets without authentication.
