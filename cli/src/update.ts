@@ -49,6 +49,7 @@ export interface UpdateOptions {
   npmAdapter?: NpmAdapter;
   temporaryRoot?: string;
   progress?: (message: string) => void;
+  acquireLock?: () => Promise<() => Promise<void>>;
 }
 
 export interface AutomaticUpdateAttempt {
@@ -209,6 +210,7 @@ function samePath(left: string, right: string): boolean {
 async function resolveGlobalPackageRoot(packageRoot: string, npm: NpmAdapter): Promise<string | undefined> {
   const globalRoot = await npm.globalRoot();
   const globalPackage = path.join(globalRoot, '@mizius', 'minecraft');
+  if (samePath(packageRoot, globalPackage)) return globalPackage;
   try {
     const [currentPath, globalPath] = await Promise.all([realpath(packageRoot), realpath(globalPackage)]);
     return samePath(currentPath, globalPath) ? globalPath : undefined;
@@ -313,13 +315,8 @@ async function restorePackage(target: string, backup: string): Promise<void> {
   await cp(backup, target, { recursive: true, errorOnExist: true, force: false });
 }
 
-export async function updateCli(packageRoot: string, options: UpdateOptions = {}): Promise<UpdateResult> {
-  const npm = options.npmAdapter ?? createNpmAdapter();
-  const globalPackageRoot = await resolveGlobalPackageRoot(packageRoot, npm);
-  if (!globalPackageRoot) {
-    throw new NotGlobalInstallationError('Self-update requires the documented global npm installation. Install minecraft.tgz with npm install --global.');
-  }
-
+async function updateGlobalCli(packageRoot: string, globalPackageRoot: string, npm: NpmAdapter,
+  options: UpdateOptions): Promise<UpdateResult> {
   const localMetadata = await readPackageMetadata(packageRoot);
   if (localMetadata.name !== '@mizius/minecraft' || typeof localMetadata.version !== 'string'
       || !stableParts(localMetadata.version)) {
@@ -374,6 +371,20 @@ export async function updateCli(packageRoot: string, options: UpdateOptions = {}
     }
   } finally {
     await removeTemporary(temporaryRoot);
+  }
+}
+
+export async function updateCli(packageRoot: string, options: UpdateOptions = {}): Promise<UpdateResult> {
+  const npm = options.npmAdapter ?? createNpmAdapter();
+  const globalPackageRoot = await resolveGlobalPackageRoot(packageRoot, npm);
+  if (!globalPackageRoot) {
+    throw new NotGlobalInstallationError('Self-update requires the documented global npm installation. Install minecraft.tgz with npm install --global.');
+  }
+  const release = await options.acquireLock?.();
+  try {
+    return await updateGlobalCli(packageRoot, globalPackageRoot, npm, options);
+  } finally {
+    if (release) await release();
   }
 }
 

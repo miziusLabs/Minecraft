@@ -107,9 +107,10 @@ async function main(): Promise<void> {
   requireClientPlatform();
   if (!isControl && commandName === 'update') {
     if (positionals.length !== 1) throw new Error('Use minecraft update.');
-    const release = await acquireLock(os.tmpdir());
-    try { output(await updateCli(packageRoot, { progress: message => console.error(message) })); }
-    finally { await release(); }
+    output(await updateCli(packageRoot, {
+      progress: message => console.error(message),
+      acquireLock: () => acquireLock(os.tmpdir()),
+    }));
     return;
   }
   const root = managedRoot();
