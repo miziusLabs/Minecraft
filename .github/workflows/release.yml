@@ -131,8 +131,26 @@ jobs:
               }
             }
           )
+          if ($changes.Count -eq 0) {
+            $previousTag = @(
+              git tag --merged $env:RELEASE_COMMIT --list 'v[0-9]*' --sort=-version:refname |
+                Where-Object { $_ -match '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$' }
+            ) | Select-Object -First 1
+            if ($LASTEXITCODE -ne 0) { throw 'Could not find the previous release tag.' }
+            $commitRange = if ($previousTag) { "$previousTag..$env:RELEASE_COMMIT" } else { $env:RELEASE_COMMIT }
+            $commits = @(git log --no-merges --reverse --format='%s%x09%H' $commitRange)
+            if ($LASTEXITCODE -ne 0) { throw 'Could not read commits for the release notes.' }
+            $changes = @(
+              foreach ($commit in $commits) {
+                $parts = $commit -split "`t", 2
+                if ($parts.Count -eq 2 -and $parts[0] -notmatch '^chore: bump version to ') {
+                  "- $($parts[0]) (https://github.com/$env:GH_REPO/commit/$($parts[1]))"
+                }
+              }
+            )
+          }
           $releaseNotes = @('## Changes', '') + $changes
           $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
           Set-Content -LiteralPath $notesPath -Value $releaseNotes -Encoding utf8
-          gh release create "v$env:RELEASE_VERSION" $package[0].FullName --target $env:RELEASE_COMMIT --title "Minecraft CLI v$env:RELEASE_VERSION" --notes-file $notesPath --latest
+          gh release create "v$env:RELEASE_VERSION" $package[0].FullName --target $env:RELEASE_COMMIT --title "Minecraft v$env:RELEASE_VERSION" --notes-file $notesPath --latest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
