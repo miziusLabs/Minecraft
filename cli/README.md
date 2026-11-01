@@ -12,11 +12,13 @@ The CLI starts an offline profile with the requested username. It does not sign 
 
 ## Install
 
-Install the package globally with npm.
+Download the `.tgz` asset from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest). Open a terminal in the download directory and install it globally with npm. Replace the example filename with the version you downloaded. No npm account or GitHub token is required for a public release.
 
 ```powershell
-npm install --global @mizius/minecraft
+npm install --global ./mizius-minecraft-1.0.0.tgz
 ```
+
+To update, download the new release and repeat the install command with its filename. Previous versions remain on the [releases page](https://github.com/miziusLabs/Minecraft/releases). npm still downloads dependencies from the public npm registry.
 
 List the supported versions.
 
@@ -94,18 +96,16 @@ Run the CLI tests with `npm test`.
 
 ## Publishing
 
-The `publish.yml` GitHub Actions workflow publishes when a push to `main` increases the stable version in `cli/package.json`. Changes to other package fields and prerelease versions do not publish.
+The `ci.yml` GitHub Actions workflow creates a GitHub release when a push to `main` increases the stable version in `cli/package.json`. Changes to other package fields and prerelease versions do not publish. Version decreases fail the release check.
 
-Before each release, update the version in `package.json` and `package-lock.json`, then merge the changes into `main`. The workflow runs the Windows CLI tests, both mod compatibility builds, and package installation checks. It publishes the tested npm archive with provenance, without rebuilding it in the publishing job.
+From the `cli` directory, update both version files without creating a local Git tag.
 
-For the first publication, add a GitHub Actions repository secret named `NPM_TOKEN` with permission to publish `@mizius/minecraft`. Use an npm granular access token that permits publishing without an interactive two-factor prompt. The npm account must have access to the `@mizius` scope.
+```powershell
+npm version patch --no-git-tag-version
+```
 
-After the package exists, configure a GitHub Actions trusted publisher in its npm settings. Use the following values, enable the `npm publish` permission, and leave the environment field empty.
+Use `minor` or `major` instead of `patch` when appropriate. Commit `package.json` and `package-lock.json`, then merge into `main`.
 
-| Setting | Value |
-| --- | --- |
-| Organization or user | `miziusLabs` |
-| Repository | `Minecraft` |
-| Workflow filename | `publish.yml` |
+The workflow runs the Windows CLI tests, both mod compatibility builds, and package installation checks. After they pass, it creates the tag `v<version>` at the tested commit and attaches the tested `mizius-minecraft-<version>.tgz` archive without rebuilding it. GitHub generates the release notes. Existing release tags must not be reused.
 
-Remove the repository's `NPM_TOKEN` secret once trusted publishing is configured. Later releases authenticate through GitHub OIDC. See [npm's trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/) for the npm settings.
+Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. No `NPM_TOKEN`, npm trusted publisher, or additional secret is needed. The old npm publishing workflow has been removed. Use a public repository so users can download release assets without authentication.

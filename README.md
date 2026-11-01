@@ -12,10 +12,10 @@ Launch an isolated Minecraft client and control it through MCP.
 
 ## Start a client
 
-Install Node.js 22 or newer on Windows x64, then run the following commands.
+Install Node.js 22 or newer on Windows x64. Download the `.tgz` asset from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest), then run these commands from the download directory. Replace the filename with the version you downloaded.
 
 ```powershell
-npm install --global @mizius/minecraft
+npm install --global ./mizius-minecraft-1.0.0.tgz
 minecraft launch --json
 ```
 
@@ -45,6 +45,6 @@ npm pack
 
 ## Releases
 
-Pushes to every branch run the Windows CLI tests, mod compatibility checks, and npm packaging checks through `ci.yml`. The `publish.yml` workflow publishes to npm when a push to `main` increases the stable version in `cli/package.json`. It runs the build checks before publishing.
+Pushes to every branch run the Windows CLI tests, mod compatibility builds, and package installation checks through `ci.yml`. When a push to `main` increases the stable version in `cli/package.json`, the same workflow creates a GitHub release tagged `v<version>` and attaches the tested `.tgz` package after all checks pass.
 
-See [the CLI release instructions](cli/README.md#publishing) for npm authentication setup and the release process.
+See [the CLI release instructions](cli/README.md#publishing) for version updates and release permissions. Publishing and installing public releases do not require an npm account.

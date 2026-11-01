@@ -8,6 +8,47 @@ permissions:
   contents: read
 
 jobs:
+  version:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.version.outputs.changed }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Detect a package version bump
+        id: version
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from "node:fs";
+          import { execFileSync } from "node:child_process";
+          const pkg = JSON.parse(readFileSync("cli/package.json", "utf8"));
+          let previous;
+          if (!/^0+$/.test(process.env.BEFORE_SHA)) {
+            const files = execFileSync("git", ["ls-tree", "--name-only", process.env.BEFORE_SHA, "cli/package.json"], { encoding: "utf8" }).trim();
+            if (files) previous = JSON.parse(execFileSync("git", ["show", process.env.BEFORE_SHA + ":cli/package.json"], { encoding: "utf8" })).version;
+          }
+          if (pkg.name !== "@mizius/minecraft") throw new Error("Unexpected npm package name.");
+          const stable = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+          const changed = pkg.version !== previous && stable.test(pkg.version);
+          if (changed && previous) {
+            const current = pkg.version.split(".").map(BigInt);
+            const old = previous.split("-")[0].split("+")[0].split(".").map(BigInt);
+            const difference = current.findIndex((part, index) => part !== old[index]);
+            if (difference >= 0 && current[difference] < old[difference]) throw new Error("Package version must increase.");
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, "changed=" + changed + "\nversion=" + pkg.version + "\n");
+          NODE
+
   mod:
     name: Mod on Minecraft ${{ matrix.minecraft }}
     runs-on: windows-latest
@@ -71,3 +112,52 @@ jobs:
           path: cli/artifacts/npm/*.tgz
           if-no-files-found: error
           retention-days: 7
+
+  release:
+    concurrency:
+      group: github-release
+      cancel-in-progress: false
+    needs: [version, mod, cli]
+    if: needs.version.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-package
+          path: artifacts
+      - name: Verify the package version
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          packages=(artifacts/*.tgz)
+          test "${#packages[@]}" -eq 1
+          tar -xOf "${packages[0]}" package/package.json > "$RUNNER_TEMP/packed-package.json"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const pkg = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/packed-package.json`, "utf8"));
+            if (pkg.name !== "@mizius/minecraft" || process.env.PACKAGE_VERSION !== pkg.version) {
+              throw new Error("Packed package does not match the version bump.");
+            }
+          '
+      - name: Publish the tested package as a GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          if git show-ref --verify --quiet "refs/tags/v$RELEASE_VERSION"; then
+            echo "Release tag v$RELEASE_VERSION already exists. Bump the package version again."
+            exit 1
+          fi
+          gh release create "v$RELEASE_VERSION" artifacts/*.tgz --target "$RELEASE_COMMIT" --title "Minecraft CLI v$RELEASE_VERSION" --generate-notes
