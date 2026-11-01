@@ -8,5 +8,5 @@ __pycache__/
 cli/node_modules/
 cli/dist/
 cli/skills/
-cli/artifacts/minecraft-mcp.jar
+cli/artifacts/minecraft-control.jar
 cli/*.tgz

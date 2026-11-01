@@ -1,11 +1,11 @@
-package com.mizius.mcp
+package com.mizius.control
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.mojang.blaze3d.platform.InputConstants
-import com.mizius.mcp.mixin.KeyboardAccess
-import com.mizius.mcp.mixin.MouseAccess
+import com.mizius.control.mixin.KeyboardAccess
+import com.mizius.control.mixin.MouseAccess
 import net.minecraft.SharedConstants
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.Minecraft
@@ -30,7 +30,7 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /** All mutable input state and game operations belong to the client thread. */
-class ClientControl(private val mc: Minecraft) : McpServer.Tools {
+class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
     private val keys = ConcurrentHashMap.newKeySet<Int>()
     private val buttons = hashSetOf<Int>()
     private val pending = PriorityQueue(compareBy<Scheduled> { it.due })
@@ -66,13 +66,13 @@ class ClientControl(private val mc: Minecraft) : McpServer.Tools {
     private fun keyEvent(code: Int, down: Boolean) {
         InputCodes.nativeKey(code)
         if (down) keys.add(code) else keys.remove(code)
-        keyboard().`mcp$keyPress`(window(), if (down) InputCodes.press else InputCodes.release, InputCodes.keyEvent(code, modifiers()))
+        keyboard().`control$keyPress`(window(), if (down) InputCodes.press else InputCodes.release, InputCodes.keyEvent(code, modifiers()))
         if (!down) KeyMapping.set(InputCodes.key(code), false)
     }
 
     private fun buttonEvent(button: Int, down: Boolean) {
         if (down) buttons.add(button) else buttons.remove(button)
-        mouse().`mcp$onButton`(window(), MouseButtonInfo(InputCodes.mouseButton(button), modifiers()), if (down) InputCodes.press else InputCodes.release)
+        mouse().`control$onButton`(window(), MouseButtonInfo(InputCodes.mouseButton(button), modifiers()), if (down) InputCodes.press else InputCodes.release)
         if (!down) KeyMapping.set(InputConstants.Type.MOUSE.getOrCreate(InputCodes.mouseButton(button)), false)
     }
 
@@ -83,7 +83,7 @@ class ClientControl(private val mc: Minecraft) : McpServer.Tools {
 
     private fun move(x: Double, y: Double) {
         // Tools use framebuffer pixels; input callbacks use window logical pixels.
-        mouse().`mcp$ignoreFirstMove`(false)
+        mouse().`control$ignoreFirstMove`(false)
         MouseMovement.move(mc.mouseHandler, window(), x * mc.getWindow().getScreenWidth() / mc.getWindow().getWidth(),
             y * mc.getWindow().getScreenHeight() / mc.getWindow().getHeight())
         mc.mouseHandler.handleAccumulatedMovement()
@@ -97,17 +97,17 @@ class ClientControl(private val mc: Minecraft) : McpServer.Tools {
             try {
                 renew()
                 when (name) {
-                    "get_state" -> result.complete(McpServer.text(state()))
+                    "state" -> result.complete(state())
                     "join" -> {
                         val ip = string(args, "ip", 255)
                         require(!blank(ip)) { "ip cannot be empty" }
                         if (mc.level != null) mc.disconnectWithSavingScreen()
                         ConnectScreen.startConnecting(TitleScreen(), mc, ServerAddress.parseString(ip),
-                            ServerData("MCP", ip, ServerData.Type.OTHER), false, null)
+                            ServerData("CLI", ip, ServerData.Type.OTHER), false, null)
                         result.complete(ok())
                     }
                     "move" -> { move(number(args, "x"), number(args, "y")); result.complete(ok()) }
-                    "scroll" -> { mouse().`mcp$onScroll`(window(), 0.0, number(args, "amount")); result.complete(ok()) }
+                    "scroll" -> { mouse().`control$onScroll`(window(), 0.0, number(args, "amount")); result.complete(ok()) }
                     "click" -> {
                         val button = button(args)
                         val action = if (args.has("action")) string(args, "action", 16) else "press"
@@ -130,11 +130,11 @@ class ClientControl(private val mc: Minecraft) : McpServer.Tools {
                     "type" -> {
                         check(mc.gui.screen() != null) { "Open a text interface first, for example with key T" }
                         string(args, "text", 32768).codePoints().forEach { cp ->
-                            keyboard().`mcp$charTyped`(window(), CharacterEvent(cp))
+                            keyboard().`control$charTyped`(window(), CharacterEvent(cp))
                         }
                         result.complete(ok())
                     }
-                    "execute_command" -> {
+                    "execute" -> {
                         val connection = checkNotNull(mc.getConnection()) { "Not connected to a world" }
                         val command = string(args, "command", 32500).removePrefix("/")
                         require(!blank(command) && '\n' !in command && '\r' !in command) { "Invalid command" }
@@ -193,11 +193,10 @@ class ClientControl(private val mc: Minecraft) : McpServer.Tools {
                         for (y in 0 until image.getHeight()) for (x in 0 until image.getWidth()) png.setRGB(x, y, image.getPixel(x, y))
                         ImageIO.write(png, "png", output)
                         val content = JsonObject().apply {
-                            addProperty("type", "image")
                             addProperty("mimeType", "image/png")
                             addProperty("data", Base64.getEncoder().encodeToString(output.toByteArray()))
                         }
-                        result.complete(JsonObject().apply { add("content", JsonArray().apply { add(content) }) })
+                        result.complete(content)
                     }
                 }
             } catch (e: Exception) { result.completeExceptionally(e) }
@@ -245,7 +244,8 @@ class ClientControl(private val mc: Minecraft) : McpServer.Tools {
     companion object {
         private val LEASE_NANOS = TimeUnit.SECONDS.toNanos(30)
         private val INPUT_ACTIONS = setOf("press", "hold", "release")
-        private fun ok(): JsonObject = McpServer.text("ok")
+        @JvmField val COMMANDS = setOf("state", "join", "move", "scroll", "click", "key", "type", "execute", "drag", "screenshot")
+        private fun ok(): JsonObject = JsonObject().apply { addProperty("ok", true) }
         private fun blank(value: String): Boolean = value.codePoints().allMatch(Character::isWhitespace)
 
         @JvmStatic

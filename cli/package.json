@@ -1,7 +1,7 @@
 {
   "name": "@mizius/minecraft",
   "version": "1.0.0",
-  "description": "Launch an isolated Minecraft client with the Minecraft MCP mod.",
+  "description": "Launch and control an isolated Minecraft client from the command line.",
   "homepage": "https://github.com/miziusLabs/Minecraft",
   "repository": {
     "type": "git",
@@ -14,7 +14,7 @@
   },
   "files": [
     "dist/**",
-    "artifacts/minecraft-mcp.jar",
+    "artifacts/minecraft-control.jar",
     "compatibility.json",
     "skills/minecraft/SKILL.md",
     "README.md"

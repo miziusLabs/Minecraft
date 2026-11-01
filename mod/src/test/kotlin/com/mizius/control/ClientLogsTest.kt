@@ -1,4 +1,4 @@
-package com.mizius.mcp
+package com.mizius.control
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -149,24 +149,23 @@ class ClientLogsTest {
         emit("[WARN] client message")
         val pending = CompletableFuture<JsonObject>()
         val entered = CountDownLatch(1)
-        McpServer({ _, _ -> entered.countDown(); pending }, 0, "", logs).use { server ->
+        ControlServer({ _, _ -> entered.countDown(); pending }, 0, "", logs).use { server ->
             server.start()
             val http = HttpClient.newHttpClient()
-            val endpoint = URI.create("http://127.0.0.1:${server.port()}/mcp")
+            val endpoint = URI.create("http://127.0.0.1:${server.port()}/control")
             fun request(body: String): HttpRequest = HttpRequest.newBuilder(endpoint)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body)).build()
-            val action = request("""{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"key"}}""")
+            val action = request("""{"command":"key","arguments":{"key":"W","action":"press"}}""")
             val busy = http.sendAsync(action, HttpResponse.BodyHandlers.ofString())
             assertTrue(entered.await(2, TimeUnit.SECONDS))
-            val read = request("""{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_logs","arguments":{"queries":["warn"],"limit":10}}}""")
+            val read = request("""{"command":"logs","arguments":{"queries":["warn"],"limit":10}}""")
             val response = http.send(read, HttpResponse.BodyHandlers.ofString())
             assertEquals(200, response.statusCode())
-            val text = JsonParser.parseString(response.body()).asJsonObject
-                .getAsJsonObject("result").getAsJsonArray("content")[0].asJsonObject.get("text").asString
-            assertEquals(listOf("[WARN] client message"), messages(JsonParser.parseString(text).asJsonObject))
+            val result = JsonParser.parseString(response.body()).asJsonObject
+            assertEquals(listOf("[WARN] client message"), messages(result))
             assertFalse(busy.isDone)
-            pending.complete(McpServer.text("ok"))
+            pending.complete(JsonObject().apply { addProperty("ok", true) })
             assertEquals(200, busy.get(2, TimeUnit.SECONDS).statusCode())
         }
     }

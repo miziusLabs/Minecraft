@@ -7,7 +7,7 @@ import path from 'node:path';
 
 const exec = promisify(execFile);
 export interface Identity { pid: number; started: string; executable: string; commandLine: string }
-export interface RunningClient { identity: Identity; instance: string; version: string; log: string; url: string }
+export interface RunningClient { identity: Identity; instance: string; version: string; log: string; port: number }
 
 async function powershell(script: string): Promise<string> {
   const encoded = Buffer.from(`$ErrorActionPreference='Stop'; ${script}`, 'utf16le').toString('base64');
@@ -32,10 +32,23 @@ export function matchesProcess(actual: Identity | null, expected: Identity, inst
 }
 
 export async function running(root: string): Promise<RunningClient | null> {
-  let record: RunningClient;
+  let record: RunningClient & { url?: string };
   try { record = JSON.parse(await readFile(path.join(root, 'client.json'), 'utf8')); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
-  return matchesProcess(await identity(record.identity.pid), record.identity, record.instance) ? record : null;
+  const legacyPort = (() => {
+    try {
+      const url = new URL(record.url ?? '');
+      const port = Number(url.port || 8765);
+      return url.protocol === 'http:' && url.hostname === '127.0.0.1' && validControlPort(port) ? port : undefined;
+    } catch { return undefined; }
+  })();
+  const port = validControlPort(record.port) ? record.port : legacyPort ?? 8765;
+  const normalized = { ...record, port };
+  return matchesProcess(await identity(record.identity.pid), record.identity, record.instance) ? normalized : null;
+}
+
+function validControlPort(port: number): boolean {
+  return Number.isInteger(port) && port >= 1024 && port <= 65535 && port !== 18765;
 }
 
 export async function stopClient(record: RunningClient): Promise<void> {

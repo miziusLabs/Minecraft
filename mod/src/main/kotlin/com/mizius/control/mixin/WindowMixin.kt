@@ -1,7 +1,7 @@
-package com.mizius.mcp.mixin
+package com.mizius.control.mixin
 
-import com.mizius.mcp.McpMod
-import com.mizius.mcp.BackgroundLaunch
+import com.mizius.control.ControlMod
+import com.mizius.control.BackgroundLaunch
 import com.mojang.blaze3d.platform.Window
 import org.spongepowered.asm.mixin.Mixin
 import org.spongepowered.asm.mixin.Shadow
@@ -18,7 +18,7 @@ abstract class WindowMixin {
     @Shadow private var focused = false
 
     @Inject(method = ["<init>"], at = [At("RETURN")])
-    private fun `mcp$initialFocus`(ci: CallbackInfo) {
+    private fun `control$initialFocus`(ci: CallbackInfo) {
         if (BackgroundLaunch.enabled()) focused = BackgroundLaunch.focused(handle())
     }
 
@@ -28,18 +28,18 @@ abstract class WindowMixin {
         at = [At("HEAD")],
         require = 0
     )
-    private fun `mcp$backgroundSdl`(ci: CallbackInfoReturnable<Long>) {
+    private fun `control$backgroundSdl`(ci: CallbackInfoReturnable<Long>) {
         BackgroundLaunch.configureSdl()
     }
 
     // Keep GUI coordinate conversion usable when GLFW reports zero logical dimensions.
     @Inject(method = ["getScreenWidth"], at = [At("RETURN")], cancellable = true)
-    private fun `mcp$width`(ci: CallbackInfoReturnable<Int>) {
-        if (ci.returnValue <= 0 && McpMod.isControlling()) ci.returnValue = maxOf(1, getWidth())
+    private fun `control$width`(ci: CallbackInfoReturnable<Int>) {
+        if (ci.returnValue <= 0 && ControlMod.isControlling()) ci.returnValue = maxOf(1, getWidth())
     }
 
     @Inject(method = ["getScreenHeight"], at = [At("RETURN")], cancellable = true)
-    private fun `mcp$height`(ci: CallbackInfoReturnable<Int>) {
-        if (ci.returnValue <= 0 && McpMod.isControlling()) ci.returnValue = maxOf(1, getHeight())
+    private fun `control$height`(ci: CallbackInfoReturnable<Int>) {
+        if (ci.returnValue <= 0 && ControlMod.isControlling()) ci.returnValue = maxOf(1, getHeight())
     }
 }

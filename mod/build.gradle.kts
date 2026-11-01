@@ -7,7 +7,7 @@ version = "1.0.0"
 group = "com.mizius"
 
 base {
-    archivesName.set("minecraft-mcp")
+    archivesName.set("minecraft-control")
 }
 
 dependencies {
