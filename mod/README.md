@@ -4,7 +4,7 @@ Minecraft Control is a Fabric client mod for Minecraft Java 26.3 and 26.2. It re
 
 The command endpoint binds to `127.0.0.1` on port 8765 by default. The CLI sets `minecraft.control.port` when it launches the game. Set `MINECRAFT_CONTROL_TOKEN` to require bearer-token authorization. Requests with browser origins and unexpected Host headers are rejected.
 
-The CLI supports state inspection, screenshots, server joining, keyboard and mouse input, text entry, permitted server commands, and client log searches. See the [CLI guide](../cli/README.md) for command syntax.
+The CLI supports state inspection, screenshots, video recording, server joining, keyboard and mouse input, text entry, permitted server commands, and client log searches. Recordings use the game's rendered view and are saved as silent MP4 files under the Minecraft instance's `recordings` directory. See the [CLI guide](../cli/README.md) for command syntax.
 
 ## Build
 

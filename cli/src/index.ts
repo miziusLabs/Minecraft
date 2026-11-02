@@ -24,6 +24,8 @@ const help = `Minecraft command line
   minecraft stop [--json]
   minecraft control state [--json]
   minecraft control screenshot [--output <file>] [--json]
+  minecraft control record start [--fps 10] [--json]
+  minecraft control record stop [--json]
   minecraft control join <server-address> [--json]
   minecraft control click <x> <y> [--button left|right|middle] [--action press|hold|release] [--json]
   minecraft control move <x> <y> [--json]
@@ -69,7 +71,8 @@ async function sendCommand(root: string, name: string, args: Record<string, unkn
   if (!record) throw new Error('Minecraft is not running. Run minecraft launch first.');
   const url = controlUrl(record.port);
   await controlReady(url);
-  return controlCommand(name, args, url, name === 'screenshot' ? 30_000 : 35_000);
+  const timeoutMs = name === 'screenshot' ? 30_000 : name === 'record' ? 125_000 : 35_000;
+  return controlCommand(name, args, url, timeoutMs);
 }
 
 async function main(): Promise<void> {
@@ -77,7 +80,7 @@ async function main(): Promise<void> {
     json: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
     username: { type: 'string' }, dir: { type: 'string' }, port: { type: 'string' }, foreground: { type: 'boolean' },
     output: { type: 'string' }, button: { type: 'string' }, action: { type: 'string' },
-    'duration-ms': { type: 'string' }, limit: { type: 'string' },
+    'duration-ms': { type: 'string' }, limit: { type: 'string' }, fps: { type: 'string' },
   } });
   if (values.help || positionals.length === 0) { console.log(help); return; }
   const [topLevel, second, ...remaining] = positionals;
@@ -101,7 +104,7 @@ async function main(): Promise<void> {
     const manifest = await readManifest(packageRoot);
     output({ defaultVersion: manifest.defaultVersion, versions: Object.keys(manifest.versions) }); return;
   }
-  if (isControl ? !['state', 'screenshot', 'join', 'click', 'move', 'drag', 'scroll', 'key', 'type', 'execute', 'logs', 'batch'].includes(commandName ?? '') : !['launch', 'status', 'stop', 'update'].includes(commandName ?? '')) {
+  if (isControl ? !['state', 'screenshot', 'record', 'join', 'click', 'move', 'drag', 'scroll', 'key', 'type', 'execute', 'logs', 'batch'].includes(commandName ?? '') : !['launch', 'status', 'stop', 'update'].includes(commandName ?? '')) {
     throw new Error(isControl ? `Unknown control command ${commandName}. Run minecraft --help.` : `Unknown command ${commandName}. Run minecraft --help.`);
   }
   requireClientPlatform();
@@ -168,6 +171,18 @@ async function main(): Promise<void> {
     const file = path.resolve(values.output ?? `minecraft-screenshot-${new Date().toISOString().replaceAll(':', '-')}.png`);
     await writeFile(file, Buffer.from(result.data, 'base64'));
     output({ screenshot: file, mimeType: result.mimeType }); return;
+  }
+  if (commandName === 'record') {
+    if (argument === 'start' && !rest.length) {
+      if (values.output !== undefined) throw new Error('Recordings are saved under the managed Minecraft instance.');
+      const fps = values.fps === undefined ? 10 : integer(values.fps, 'fps');
+      if (fps < 1 || fps > 20) throw new Error('fps must be between 1 and 20.');
+      output(await sendCommand(root, 'record', { action: 'start', fps })); return;
+    }
+    if (argument === 'stop' && !rest.length && values.fps === undefined && values.output === undefined) {
+      output(await sendCommand(root, 'record', { action: 'stop' })); return;
+    }
+    throw new Error('Use minecraft control record start [--fps 10] or minecraft control record stop.');
   }
   if (commandName === 'join') {
     if (!argument || rest.length) throw new Error('Use minecraft control join <server-address>.');

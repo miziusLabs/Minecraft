@@ -23,6 +23,7 @@ Use the `minecraft` command line tool to start and control the managed Minecraft
 - Use `minecraft control type <text>` to enter text in an open interface. Open chat with `minecraft control key T` before typing chat text, then use `minecraft control key ENTER` to send it.
 - Use `minecraft control execute <command>` only when the current server grants the required permission.
 - Use `minecraft control logs [query]` to inspect recent client log lines.
+- Use `minecraft control record start` before an interaction and `minecraft control record stop` afterward to save a silent MP4 of the game view. The command output contains the recording path. Recordings stop automatically after ten minutes.
 - Use `minecraft control batch <json-array>` to run a short sequence of commands without interleaving another control action.
 - Release held keys and mouse buttons after each movement or interaction. Held inputs expire after 30 seconds without game commands.
 - Treat the client as one shared instance. Do not send overlapping controls from separate agents.

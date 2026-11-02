@@ -15,6 +15,10 @@ dependencies {
     implementation("net.fabricmc:fabric-loader:0.19.5")
     implementation(kotlin("stdlib"))
     include(kotlin("stdlib", "2.4.20"))
+    implementation("org.jcodec:jcodec:0.2.5")
+    include("org.jcodec:jcodec:0.2.5")
+    implementation("org.jcodec:jcodec-javase:0.2.5")
+    include("org.jcodec:jcodec-javase:0.2.5")
     testImplementation("org.junit.jupiter:junit-jupiter:5.13.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

@@ -54,6 +54,8 @@ Run a CLI command after launch. Every command returns JSON, and `--json` prints 
 ```powershell
 minecraft control state --json
 minecraft control screenshot --output .\screen.png
+minecraft control record start --json
+minecraft control record stop --json
 minecraft control join localhost:25565
 minecraft control click 640 360 --button left
 minecraft control key W --action hold
@@ -63,11 +65,15 @@ minecraft control logs warn --limit 20
 minecraft control batch '[{"command":"key","arguments":{"key":"W","action":"hold"},"delay_ms":1000},{"command":"key","arguments":{"key":"W","action":"release"}]'
 ```
 
-`minecraft control state` reports the current screen, connection, window dimensions, held inputs, and player position. `minecraft control screenshot` saves a PNG in the current directory. By default it uses a timestamped filename. Use `--output` to select a path.
+`minecraft control state` reports the current screen, connection, window dimensions, held inputs, player position, and recording state. `minecraft control screenshot` saves a PNG in the current directory. By default it uses a timestamped filename. Use `--output` to select a path.
+
+`minecraft control record start` begins a silent MP4 recording of the game view. It records at 10 FPS by default, accepts `--fps` from 1 to 20, and scales output to fit within 1280 by 720 pixels. `minecraft control record stop` finalizes the recording. Both commands return the file path as JSON. Recordings are saved in the current Minecraft instance's `recordings` directory and stop automatically after ten minutes. If encoding falls behind, the recorder drops frames and the video plays shorter than the elapsed recording time. The stop response reports `dropped_frames`, the video's `duration_ms`, and wall-clock `elapsed_ms`.
+
+`minecraft stop` finalizes an active recording before closing the client.
 
 Coordinates use screenshot pixels with the origin at the top left. `minecraft control click` accepts `left`, `right`, or `middle`. Keys accept GLFW names such as `W`, `LEFT_SHIFT`, `ENTER`, and `ESCAPE`, or a numeric GLFW code. A key press releases after a short tap. Use `--action hold` and `--action release` for sustained movement. Held keys and buttons expire after 30 seconds without a game command.
 
-Use `minecraft control execute <command>` only when the connected server grants the required permission. Use `minecraft control logs [query]` to read recent client log lines. A query matches a case-insensitive literal substring. `minecraft control batch` accepts a JSON array of commands and runs them in order without interleaving other controls.
+Use `minecraft control execute <command>` only when the connected server grants the required permission. Use `minecraft control logs [query]` to read recent client log lines. A query matches a case-insensitive literal substring. `minecraft control batch` accepts a JSON array of commands and runs them in order without interleaving other controls. Recording commands cannot be included in a batch.
 
 Run `minecraft --help` for all commands and options. Agents call these commands through their shell without a separate host configuration.
 
