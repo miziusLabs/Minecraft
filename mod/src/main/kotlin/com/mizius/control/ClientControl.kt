@@ -35,6 +35,7 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
     private val buttons = hashSetOf<Int>()
     private val pending = PriorityQueue(compareBy<Scheduled> { it.due })
     private val screenshots = ArrayDeque<CompletableFuture<JsonObject>>()
+    private val recordings = RecordingManager(mc)
     @Volatile private var leaseUntil = 0L
 
     private data class Scheduled(val due: Long, val task: () -> Unit)
@@ -143,6 +144,20 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
                     }
                     "drag" -> drag(args, result)
                     "screenshot" -> screenshots.add(result)
+                    "record" -> {
+                        when (string(args, "action", 16)) {
+                            "start" -> {
+                                val fps = if (args.has("fps")) integer(args, "fps", RecordingManager.MIN_FPS, RecordingManager.MAX_FPS)
+                                    else RecordingManager.DEFAULT_FPS
+                                result.complete(recordings.start(fps))
+                            }
+                            "stop" -> recordings.stop().whenComplete { response, error ->
+                                if (error != null) result.completeExceptionally(error.cause ?: error)
+                                else result.complete(response)
+                            }
+                            else -> throw IllegalArgumentException("action must be start or stop")
+                        }
+                    }
                     else -> throw IllegalArgumentException("Unknown tool: $name")
                 }
             } catch (e: Exception) { result.completeExceptionally(e) }
@@ -204,6 +219,7 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
     }
 
     fun frame() {
+        recordings.captureFrame()
         while (screenshots.isNotEmpty()) {
             val result = screenshots.remove()
             if (!result.isDone) {
@@ -211,6 +227,8 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
             }
         }
     }
+
+    fun close() = recordings.close()
 
     private fun state(): JsonObject = JsonObject().apply {
         addProperty("version", SharedConstants.getCurrentVersion().name())
@@ -229,6 +247,7 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
         addProperty("window_focused", mc.getWindow().isFocused())
         addProperty("mouse_grabbed", mc.mouseHandler.isMouseGrabbed())
         addProperty("held_input_timeout_ms", 30000)
+        addProperty("recording", recordings.isRecording())
         add("held_keys", JsonArray().apply { keys.sorted().forEach { add(it) } })
         add("held_buttons", JsonArray().apply { buttons.sorted().forEach { add(it) } })
         mc.getCurrentServer()?.let { addProperty("server", it.ip) }
@@ -244,7 +263,8 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
     companion object {
         private val LEASE_NANOS = TimeUnit.SECONDS.toNanos(30)
         private val INPUT_ACTIONS = setOf("press", "hold", "release")
-        @JvmField val COMMANDS = setOf("state", "join", "move", "scroll", "click", "key", "type", "execute", "drag", "screenshot")
+        @JvmField val COMMANDS = setOf("state", "join", "move", "scroll", "click", "key", "type", "execute", "drag", "screenshot", "record")
+        @JvmField val BATCH_COMMANDS = COMMANDS - "record"
         private fun ok(): JsonObject = JsonObject().apply { addProperty("ok", true) }
         private fun blank(value: String): Boolean = value.codePoints().allMatch(Character::isWhitespace)
 

@@ -108,6 +108,14 @@ export async function stop(root: string): Promise<{ stopped: boolean }> {
   try {
     const record = await running(root);
     if (!record) return { stopped: false };
+    const url = controlUrl(record.port);
+    let ready = false;
+    try { await controlReady(url); ready = true; } catch { /* The process may be starting or exiting. */ }
+    if (ready) {
+      let recording = false;
+      try { recording = (await command('state', {}, url)).recording === true; } catch { /* Fall back to the normal window close. */ }
+      if (recording) await command('record', { action: 'stop' }, url, 125_000);
+    }
     await stopClient(record);
     for (let count = 0; count < 30; count++) {
       if (!(await running(root))) {

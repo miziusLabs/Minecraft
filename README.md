@@ -28,6 +28,8 @@ Use the CLI commands to inspect and control the game.
 
 ```powershell
 minecraft control screenshot --output .\screen.png
+minecraft control record start --json
+minecraft control record stop --json
 minecraft control key W --action hold
 minecraft control key W --action release
 minecraft control click 640 360 --button left

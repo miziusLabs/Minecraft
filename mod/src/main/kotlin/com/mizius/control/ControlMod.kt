@@ -28,6 +28,9 @@ class ControlMod : ClientModInitializer {
         @JvmStatic fun isHeld(key: Int): Boolean = control?.held(key) == true
         @JvmStatic fun tick() { control?.tick() }
         @JvmStatic fun frame() { control?.frame() }
-        @JvmStatic fun close() { server?.close() }
+        @JvmStatic fun close() {
+            control?.close()
+            server?.close()
+        }
     }
 }

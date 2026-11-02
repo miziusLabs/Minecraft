@@ -129,7 +129,7 @@ class ControlServer @Throws(IOException::class) constructor(
             val action = item.asJsonObject
             require(action.keySet().all { it in setOf("command", "arguments", "delay_ms") }) { "Unknown batch action property" }
             val name = ClientControl.string(action, "command", 64)
-            require(name in ClientControl.COMMANDS || name == "logs") { "Invalid batch command: $name" }
+            require(name in ClientControl.BATCH_COMMANDS || name == "logs") { "Invalid batch command: $name" }
             require(!action.has("arguments") || action.get("arguments").isJsonObject) { "Action arguments must be an object" }
             val args = if (action.has("arguments")) action.getAsJsonObject("arguments") else JsonObject()
             val delay = if (action.has("delay_ms")) ClientControl.integer(action, "delay_ms", 0, 10000) else 0
@@ -158,9 +158,11 @@ class ControlServer @Throws(IOException::class) constructor(
         return JsonObject().apply { add("results", results) }
     }
 
-    private fun invoke(command: String, arguments: JsonObject, deadline: Long = System.nanoTime() + TimeUnit.SECONDS.toNanos(COMMAND_TIMEOUT_SECONDS)): JsonObject {
-        val remaining = minOf(TimeUnit.SECONDS.toNanos(COMMAND_TIMEOUT_SECONDS), deadline - System.nanoTime())
-        if (remaining <= 0) throw TimeoutException("Batch exceeded its 30 second execution limit")
+    private fun invoke(command: String, arguments: JsonObject, deadline: Long? = null): JsonObject {
+        val timeoutSeconds = if (command == "record") RECORDING_COMMAND_TIMEOUT_SECONDS else COMMAND_TIMEOUT_SECONDS
+        val commandDeadline = deadline ?: System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
+        val remaining = minOf(TimeUnit.SECONDS.toNanos(timeoutSeconds), commandDeadline - System.nanoTime())
+        if (remaining <= 0) throw TimeoutException("Command timed out")
         val future = tools.call(command, arguments)
         return try { future.get(remaining, TimeUnit.NANOSECONDS) }
         catch (e: TimeoutException) { future.cancel(false); throw e }
@@ -170,6 +172,7 @@ class ControlServer @Throws(IOException::class) constructor(
     companion object {
         private const val MAX_BODY = 1_048_576
         private const val COMMAND_TIMEOUT_SECONDS = 30L
+        private const val RECORDING_COMMAND_TIMEOUT_SECONDS = 120L
         private fun configuredPort(): Int = Integer.getInteger("minecraft.control.port", 8765)
         private fun configuredToken(): String = System.getProperty("minecraft.control.token", System.getenv("MINECRAFT_CONTROL_TOKEN") ?: "")
         private fun error(message: String) = JsonObject().apply { addProperty("error", message) }
