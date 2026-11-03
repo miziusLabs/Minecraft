@@ -13,7 +13,7 @@ abstract class MinecraftMixin {
     @Inject(method = ["tick"], at = [At("HEAD")])
     private fun `control$tick`(ci: CallbackInfo) { ControlMod.tick() }
 
-    @Inject(method = ["renderFrame"], at = [At("TAIL")])
+    @Inject(method = ["renderFrame"], at = [At("TAIL")], require = 0)
     private fun `control$frame`(renderLevel: Boolean, ci: CallbackInfo) { ControlMod.frame() }
 
     @Inject(method = ["isWindowActive"], at = [At("HEAD")], cancellable = true)
@@ -21,7 +21,7 @@ abstract class MinecraftMixin {
         if (ControlMod.isControlling()) ci.returnValue = true
     }
 
-    @Inject(method = ["pauseIfInactive"], at = [At("HEAD")], cancellable = true)
+    @Inject(method = ["pauseIfInactive"], at = [At("HEAD")], cancellable = true, require = 0)
     private fun `control$pause`(ci: CallbackInfo) {
         if (ControlMod.isControlling()) ci.cancel()
     }

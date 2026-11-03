@@ -11,10 +11,18 @@ const repositoryDirectory = path.resolve(cliDirectory, '..');
 const modDirectory = path.join(repositoryDirectory, 'mod');
 const artifactDirectory = path.join(cliDirectory, 'artifacts');
 const manifestPath = path.join(cliDirectory, 'compatibility.json');
+const versions = [
+  '1.21.4', '1.21.5', '1.21.6', '1.21.7', '1.21.8', '1.21.9', '1.21.10', '1.21.11',
+  '26.1', '26.1.1', '26.1.2', '26.2', '26.3',
+];
+const loaderVersion = '0.20.1';
 
 function runGradle(initScript, archivePathFile, target) {
   const wrapper = path.join(modDirectory, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
   const gradleArguments = [
+    '--no-daemon',
+    '--rerun-tasks',
+    '--no-build-cache',
     `-PcliArtifactPathFile=${archivePathFile}`,
     `-PcliJarTask=${target.jarTask}`,
     ...target.gradleProperties,
@@ -46,7 +54,7 @@ async function main() {
       def jarTaskName = root.findProperty('cliJarTask') ?: 'jar'
   if (outputPath == null) throw new GradleException('Missing -PcliArtifactPathFile project property')
   root.tasks.register('writeCliJarArchivePath') {
-    dependsOn root.tasks.named('build')
+    dependsOn root.tasks.named(jarTaskName.toString())
     doLast {
       def archive = root.tasks.named(jarTaskName.toString()).get().archiveFile.get().asFile.canonicalFile
       new File(outputPath.toString()).setText(archive.absolutePath, 'UTF-8')
@@ -56,20 +64,17 @@ async function main() {
 `);
     await mkdir(artifactDirectory, { recursive: true });
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-    const targets = [
-      {
-        versions: ['1.21.4'],
-        file: 'artifacts/minecraft-control-1.21.4.jar',
-        jarTask: 'remapJar',
-        gradleProperties: ['-Pminecraft_version=1.21.4'],
-      },
-      {
-        versions: ['26.2', '26.3'],
-        file: 'artifacts/minecraft-control.jar',
-        jarTask: 'jar',
-        gradleProperties: [],
-      },
-    ];
+    const targets = versions.map(version => ({
+      versions: [version],
+      file: `artifacts/minecraft-control-${version}.jar`,
+      jarTask: version.startsWith('1.21.') ? 'remapJar' : 'jar',
+      gradleProperties: [
+        `-Pminecraft_version=${version}`,
+        `-Pfabric_minecraft_versions=${version}`,
+        `-Pfabric_loader_version=${loaderVersion}`,
+        `-Pfabric_loader_minimum=${loaderVersion}`,
+      ],
+    }));
     const targetVersions = new Set(targets.flatMap(target => target.versions));
     const manifestVersions = Object.keys(manifest.versions ?? {});
     if (manifestVersions.length !== targetVersions.size

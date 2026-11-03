@@ -7,18 +7,22 @@ plugins {
 }
 
 val minecraftVersion = providers.gradleProperty("minecraft_version").get()
-val legacyMinecraft = minecraftVersion == "1.21.4"
+val legacyMinecraft = minecraftVersion.startsWith("1.21.")
+val legacyScreenshotCallback = legacyMinecraft && minecraftVersion != "1.21.4"
+val legacyMinecraftApi = minecraftVersion in setOf("1.21.6", "1.21.7", "1.21.8")
+val recordInputMinecraft = minecraftVersion in setOf("1.21.9", "1.21.10", "1.21.11", "26.1", "26.1.1", "26.1.2")
 apply(plugin = if (legacyMinecraft) "net.fabricmc.fabric-loom-remap" else "net.fabricmc.fabric-loom")
 
 val javaVersion = providers.gradleProperty("java_version").orElse(if (legacyMinecraft) "21" else "25").get().toInt()
-val loaderVersion = providers.gradleProperty("fabric_loader_version").orElse(if (legacyMinecraft) "0.16.10" else "0.19.5").get()
-val loaderMinimum = providers.gradleProperty("fabric_loader_minimum").orElse(if (legacyMinecraft) "0.16.10" else "0.19.3").get()
+val loaderVersion = providers.gradleProperty("fabric_loader_version").orElse("0.20.1").get()
+val loaderMinimum = providers.gradleProperty("fabric_loader_minimum").orElse("0.20.1").get()
 val compatibleMinecraftVersions = providers.gradleProperty("fabric_minecraft_versions")
-    .orElse(if (legacyMinecraft) minecraftVersion else "26.2,26.3").get()
-val mixinClasses = if (legacyMinecraft) {
-    listOf("KeyboardAccess", "MouseAccess", "MinecraftMixin", "GameRendererMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin")
-} else {
-    listOf("KeyboardAccess", "MouseAccess", "MinecraftMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin")
+    .orElse(minecraftVersion).get()
+val mixinClasses = when {
+    recordInputMinecraft && minecraftVersion.startsWith("1.21.") -> listOf("KeyboardAccess", "MouseAccess", "MinecraftMixin", "GameRendererMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin")
+    recordInputMinecraft -> listOf("KeyboardAccess", "MouseAccess", "MinecraftMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin")
+    legacyMinecraft -> listOf("KeyboardAccess", "MouseAccess", "MinecraftMixin", "GameRendererMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin")
+    else -> listOf("KeyboardAccess", "MouseAccess", "MinecraftMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin")
 }
 
 val projectProperties = Properties().apply {
@@ -96,7 +100,42 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
 }
 
-if (legacyMinecraft) {
+if (recordInputMinecraft) {
+    val recordInputReplacements = mutableListOf(
+        "com/mizius/control/ClientScreenAccess.kt",
+        "com/mizius/control/RenderTargetAccess.kt",
+    )
+    if (minecraftVersion.startsWith("1.21.")) {
+        recordInputReplacements += listOf(
+            "com/mizius/control/mixin/WindowMixin.kt",
+            "com/mizius/control/mixin/MouseAccess.kt",
+            "com/mizius/control/mixin/MinecraftMixin.kt",
+            "com/mizius/control/mixin/InputConstantsMixin.kt",
+            "com/mizius/control/mixin/WindowCreationMixin.kt",
+            "com/mizius/control/InputCodes.kt",
+            "com/mizius/control/MouseMovement.kt",
+            "com/mizius/control/ClientInputEventAccess.kt",
+            "com/mizius/control/WindowFocusAccess.kt",
+        )
+    }
+    val legacyInputMixins = if (minecraftVersion.startsWith("1.21.")) {
+        fileTree("src/legacy/kotlin") {
+            include("com/mizius/control/mixin/GameRendererMixin.kt")
+        }
+    } else {
+        files()
+    }
+    val recordInputApiSources = fileTree(
+        if (minecraftVersion.startsWith("26.1")) "src/legacy261/kotlin" else "src/legacy12111/kotlin"
+    )
+    tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileKotlin") {
+        setSource(files(
+            fileTree("src/main/kotlin") { exclude(recordInputReplacements) },
+            legacyInputMixins,
+            recordInputApiSources,
+        ))
+    }
+} else if (legacyMinecraft) {
     val replacementSources = listOf(
         "com/mizius/control/ClientControl.kt",
         "com/mizius/control/InputCodes.kt",
@@ -107,11 +146,32 @@ if (legacyMinecraft) {
         "com/mizius/control/mixin/InputConstantsMixin.kt",
         "com/mizius/control/mixin/WindowMixin.kt",
         "com/mizius/control/mixin/WindowCreationMixin.kt",
+        "com/mizius/control/MouseMovement.kt",
+        "com/mizius/control/ClientInputEventAccess.kt",
+        "com/mizius/control/ClientScreenAccess.kt",
+        "com/mizius/control/RenderTargetAccess.kt",
+        "com/mizius/control/WindowFocusAccess.kt",
     )
+    val legacySources = fileTree("src/legacy/kotlin") {
+        if (legacyScreenshotCallback) exclude("com/mizius/control/ScreenshotCapture.kt")
+        if (legacyMinecraftApi) exclude("com/mizius/control/MinecraftApi.kt")
+    }
+    val legacyScreenshotSources = if (legacyScreenshotCallback) {
+        fileTree("src/legacyAsync/kotlin")
+    } else {
+        files()
+    }
+    val legacyApiSources = if (legacyMinecraftApi) {
+        fileTree("src/legacy1216/kotlin")
+    } else {
+        files()
+    }
     tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileKotlin") {
         setSource(files(
             fileTree("src/main/kotlin") { exclude(replacementSources) },
-            fileTree("src/legacy/kotlin"),
+            legacySources,
+            legacyScreenshotSources,
+            legacyApiSources,
         ))
     }
     tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileTestKotlin") {

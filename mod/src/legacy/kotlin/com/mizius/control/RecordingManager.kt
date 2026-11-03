@@ -3,7 +3,6 @@ package com.mizius.control
 import com.google.gson.JsonObject
 import com.mojang.blaze3d.platform.NativeImage
 import net.minecraft.client.Minecraft
-import net.minecraft.client.Screenshot
 import org.jcodec.api.awt.AWTSequenceEncoder
 import org.jcodec.common.io.FileChannelWrapper
 import org.jcodec.common.io.NIOUtils
@@ -69,13 +68,14 @@ class RecordingManager(private val mc: Minecraft) : AutoCloseable {
         val session = current ?: return
         if (!session.requestCapture()) return
         try {
-            val image = Screenshot.takeScreenshot(mc.getMainRenderTarget())
-            try {
-                image.use { session.submit(readPixels(image, session.width, session.height)) }
-            } catch (exception: Exception) {
-                session.fail(exception)
-            } finally {
-                session.captureFinished()
+            ScreenshotCapture.capture(mc.getMainRenderTarget()) { image ->
+                try {
+                    image.use { session.submit(readPixels(image, session.width, session.height)) }
+                } catch (exception: Exception) {
+                    session.fail(exception)
+                } finally {
+                    session.captureFinished()
+                }
             }
         } catch (exception: Exception) {
             session.captureFinished()

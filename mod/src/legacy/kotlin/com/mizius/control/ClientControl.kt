@@ -9,7 +9,6 @@ import com.mizius.control.mixin.MouseAccess
 import net.minecraft.SharedConstants
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.Minecraft
-import net.minecraft.client.Screenshot
 import net.minecraft.client.gui.screens.ConnectScreen
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.client.multiplayer.ServerData
@@ -45,7 +44,7 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
     private fun renew() { leaseUntil = System.nanoTime() + LEASE_NANOS }
     private fun keyboard() = mc.keyboardHandler as KeyboardAccess
     private fun mouse() = mc.mouseHandler as MouseAccess
-    private fun window(): Long = mc.getWindow().getWindow()
+    private fun window(): Long = MinecraftApi.windowHandle(mc.getWindow())
 
     fun tick() {
         if (!active() && (keys.isNotEmpty() || buttons.isNotEmpty())) releaseAll()
@@ -103,7 +102,7 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
                     "join" -> {
                         val ip = string(args, "ip", 255)
                         require(!blank(ip)) { "ip cannot be empty" }
-                        if (mc.level != null) mc.disconnect()
+                        if (mc.level != null) MinecraftApi.disconnect(mc)
                         ConnectScreen.startConnecting(TitleScreen(), mc, ServerAddress.parseString(ip),
                             ServerData("CLI", ip, ServerData.Type.OTHER), false, null)
                         result.complete(ok())
@@ -201,18 +200,23 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
     }
 
     private fun screenshot(result: CompletableFuture<JsonObject>) {
-        val image = Screenshot.takeScreenshot(mc.getMainRenderTarget())
         try {
-            image.use {
-                ByteArrayOutputStream().use { output ->
-                    val png = BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB)
-                    for (y in 0 until image.getHeight()) for (x in 0 until image.getWidth()) png.setRGB(x, y, image.getPixel(x, y))
-                    ImageIO.write(png, "png", output)
-                    val content = JsonObject().apply {
-                        addProperty("mimeType", "image/png")
-                        addProperty("data", Base64.getEncoder().encodeToString(output.toByteArray()))
+            ScreenshotCapture.capture(mc.getMainRenderTarget()) { image ->
+                try {
+                    image.use {
+                        ByteArrayOutputStream().use { output ->
+                            val png = BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB)
+                            for (y in 0 until image.getHeight()) for (x in 0 until image.getWidth()) png.setRGB(x, y, image.getPixel(x, y))
+                            ImageIO.write(png, "png", output)
+                            val content = JsonObject().apply {
+                                addProperty("mimeType", "image/png")
+                                addProperty("data", Base64.getEncoder().encodeToString(output.toByteArray()))
+                            }
+                            result.complete(content)
+                        }
                     }
-                    result.complete(content)
+                } catch (e: Exception) {
+                    result.completeExceptionally(e)
                 }
             }
         } catch (e: Exception) { result.completeExceptionally(e) }
@@ -231,7 +235,7 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
     fun close() = recordings.close()
 
     private fun state(): JsonObject = JsonObject().apply {
-        addProperty("version", SharedConstants.getCurrentVersion().id)
+        addProperty("version", MinecraftApi.currentVersionName())
         addProperty("width", mc.getWindow().getWidth())
         addProperty("height", mc.getWindow().getHeight())
         addProperty("gui_width", mc.getWindow().getGuiScaledWidth())
