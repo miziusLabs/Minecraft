@@ -1,7 +1,7 @@
 {
   "required": true,
   "package": "com.mizius.control.mixin",
-  "compatibilityLevel": "JAVA_25",
-  "client": ["KeyboardAccess", "MouseAccess", "MinecraftMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin"],
+  "compatibilityLevel": "JAVA_${java_version}",
+  "client": ["${mixin_classes}"],
   "injectors": { "defaultRequire": 1 }
 }

@@ -23,7 +23,7 @@ test('CLI prints help and lists bundled versions as JSON without launching a cli
   const result = await run('versions', '--json');
   assert.deepEqual(JSON.parse(result.stdout), {
     defaultVersion: '26.3',
-    versions: ['26.2', '26.3'],
+    versions: ['1.21.4', '26.2', '26.3'],
   });
 });
 

@@ -7,5 +7,9 @@
   "environment": "client",
   "entrypoints": { "client": ["com.mizius.control.ControlMod"] },
   "mixins": ["minecraft-control.mixins.json"],
-  "depends": { "fabricloader": ">=0.19.3", "minecraft": ["26.2", "26.3"], "java": ">=25" }
+  "depends": {
+    "fabricloader": ">=${loader_minimum}",
+    "minecraft": ["${minecraft_versions}"],
+    "java": ">=${java_version}"
+  }
 }

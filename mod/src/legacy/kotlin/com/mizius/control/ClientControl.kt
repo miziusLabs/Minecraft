@@ -1,0 +1,314 @@
+package com.mizius.control
+
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import com.mojang.blaze3d.platform.InputConstants
+import com.mizius.control.mixin.KeyboardAccess
+import com.mizius.control.mixin.MouseAccess
+import net.minecraft.SharedConstants
+import net.minecraft.client.KeyMapping
+import net.minecraft.client.Minecraft
+import net.minecraft.client.Screenshot
+import net.minecraft.client.gui.screens.ConnectScreen
+import net.minecraft.client.gui.screens.TitleScreen
+import net.minecraft.client.multiplayer.ServerData
+import net.minecraft.client.multiplayer.resolver.ServerAddress
+import org.lwjgl.glfw.GLFW
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import java.util.ArrayDeque
+import java.util.Base64
+import java.util.Locale
+import java.util.PriorityQueue
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import javax.imageio.ImageIO
+import kotlin.math.abs
+import kotlin.math.max
+
+/** All mutable input state and game operations belong to the client thread. */
+class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
+    private val keys = ConcurrentHashMap.newKeySet<Int>()
+    private val buttons = hashSetOf<Int>()
+    private val pending = PriorityQueue(compareBy<Scheduled> { it.due })
+    private val screenshots = ArrayDeque<CompletableFuture<JsonObject>>()
+    private val recordings = RecordingManager(mc)
+    @Volatile private var leaseUntil = 0L
+
+    private data class Scheduled(val due: Long, val task: () -> Unit)
+
+    fun active(): Boolean = System.nanoTime() < leaseUntil
+    fun held(key: Int): Boolean = keys.any { InputCodes.nativeKey(it) == key }
+
+    private fun renew() { leaseUntil = System.nanoTime() + LEASE_NANOS }
+    private fun keyboard() = mc.keyboardHandler as KeyboardAccess
+    private fun mouse() = mc.mouseHandler as MouseAccess
+    private fun window(): Long = mc.getWindow().getWindow()
+
+    fun tick() {
+        if (!active() && (keys.isNotEmpty() || buttons.isNotEmpty())) releaseAll()
+        while (pending.isNotEmpty() && pending.peek().due <= System.nanoTime()) pending.remove().task()
+        // Focus loss and opening screens can reset Minecraft's key mappings.
+        if (active() && mc.screen == null) {
+            for (key in keys) KeyMapping.set(InputCodes.key(key), true)
+            for (button in buttons) KeyMapping.set(InputConstants.Type.MOUSE.getOrCreate(InputCodes.mouseButton(button)), true)
+        }
+    }
+
+    private fun later(ms: Long, task: () -> Unit) {
+        pending.add(Scheduled(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(ms), task))
+    }
+
+    private fun modifiers(): Int = InputCodes.modifiers { it in keys }
+
+    private fun keyEvent(code: Int, down: Boolean) {
+        InputCodes.nativeKey(code)
+        if (down) keys.add(code) else keys.remove(code)
+        keyboard().`control$keyPress`(window(), InputCodes.nativeKey(code), 0,
+            if (down) InputCodes.press else InputCodes.release, modifiers())
+        if (!down) KeyMapping.set(InputCodes.key(code), false)
+    }
+
+    private fun buttonEvent(button: Int, down: Boolean) {
+        if (down) buttons.add(button) else buttons.remove(button)
+        mouse().`control$onButton`(window(), InputCodes.mouseButton(button),
+            if (down) InputCodes.press else InputCodes.release, modifiers())
+        if (!down) KeyMapping.set(InputConstants.Type.MOUSE.getOrCreate(InputCodes.mouseButton(button)), false)
+    }
+
+    private fun releaseAll() {
+        for (key in keys.toList()) keyEvent(key, false)
+        for (button in buttons.toList()) buttonEvent(button, false)
+    }
+
+    private fun move(x: Double, y: Double) {
+        // Tools use framebuffer pixels; input callbacks use window logical pixels.
+        mouse().`control$ignoreFirstMove`(false)
+        mouse().`control$onMove`(window(), x * mc.getWindow().getScreenWidth() / mc.getWindow().getWidth(),
+            y * mc.getWindow().getScreenHeight() / mc.getWindow().getHeight())
+        mc.mouseHandler.handleAccumulatedMovement()
+    }
+
+    override fun call(name: String, arguments: JsonObject): CompletableFuture<JsonObject> {
+        val args = arguments
+        val result = CompletableFuture<JsonObject>()
+        mc.execute {
+            if (result.isDone) return@execute
+            try {
+                renew()
+                when (name) {
+                    "state" -> result.complete(state())
+                    "join" -> {
+                        val ip = string(args, "ip", 255)
+                        require(!blank(ip)) { "ip cannot be empty" }
+                        if (mc.level != null) mc.disconnect()
+                        ConnectScreen.startConnecting(TitleScreen(), mc, ServerAddress.parseString(ip),
+                            ServerData("CLI", ip, ServerData.Type.OTHER), false, null)
+                        result.complete(ok())
+                    }
+                    "move" -> { move(number(args, "x"), number(args, "y")); result.complete(ok()) }
+                    "scroll" -> { mouse().`control$onScroll`(window(), 0.0, number(args, "amount")); result.complete(ok()) }
+                    "click" -> {
+                        val button = button(args)
+                        val action = if (args.has("action")) string(args, "action", 16) else "press"
+                        require(action in INPUT_ACTIONS) { "Invalid action" }
+                        require(action != "press" || button !in buttons) { "Button already held" }
+                        move(number(args, "x"), number(args, "y"))
+                        buttonEvent(button, action != "release")
+                        if (action == "press") later(75) { finishRelease(result) { buttonEvent(button, false) } }
+                        else result.complete(ok())
+                    }
+                    "key" -> {
+                        val key = keyCode(args.get("key"))
+                        val action = string(args, "action", 16)
+                        require(action in INPUT_ACTIONS) { "Invalid action" }
+                        require(action != "press" || key !in keys) { "Key already held" }
+                        keyEvent(key, action != "release")
+                        if (action == "press") later(75) { finishRelease(result) { keyEvent(key, false) } }
+                        else result.complete(ok())
+                    }
+                    "type" -> {
+                        check(mc.screen != null) { "Open a text interface first, for example with key T" }
+                        string(args, "text", 32768).codePoints().forEach { cp ->
+                            keyboard().`control$charTyped`(window(), cp, modifiers())
+                        }
+                        result.complete(ok())
+                    }
+                    "execute" -> {
+                        val connection = checkNotNull(mc.getConnection()) { "Not connected to a world" }
+                        val command = string(args, "command", 32500).removePrefix("/")
+                        require(!blank(command) && '\n' !in command && '\r' !in command) { "Invalid command" }
+                        connection.sendCommand(command)
+                        result.complete(ok())
+                    }
+                    "drag" -> drag(args, result)
+                    "screenshot" -> screenshots.add(result)
+                    "record" -> {
+                        when (string(args, "action", 16)) {
+                            "start" -> {
+                                val fps = if (args.has("fps")) integer(args, "fps", RecordingManager.MIN_FPS, RecordingManager.MAX_FPS)
+                                    else RecordingManager.DEFAULT_FPS
+                                result.complete(recordings.start(fps))
+                            }
+                            "stop" -> recordings.stop().whenComplete { response, error ->
+                                if (error != null) result.completeExceptionally(error.cause ?: error)
+                                else result.complete(response)
+                            }
+                            else -> throw IllegalArgumentException("action must be start or stop")
+                        }
+                    }
+                    else -> throw IllegalArgumentException("Unknown tool: $name")
+                }
+            } catch (e: Exception) { result.completeExceptionally(e) }
+        }
+        return result
+    }
+
+    private fun finishRelease(result: CompletableFuture<JsonObject>, release: () -> Unit) {
+        try { release(); result.complete(ok()) }
+        catch (e: Exception) { result.completeExceptionally(e) }
+    }
+
+    private fun drag(args: JsonObject, result: CompletableFuture<JsonObject>) {
+        val from = args.getAsJsonObject("from")
+        val to = args.getAsJsonObject("to")
+        val x1 = number(from, "x")
+        val y1 = number(from, "y")
+        val x2 = number(to, "x")
+        val y2 = number(to, "y")
+        val button = button(args)
+        val duration = if (args.has("duration_ms")) integer(args, "duration_ms", 50, 10000) else 250
+        require(button !in buttons) { "Button already held" }
+        move(x1, y1)
+        buttonEvent(button, true)
+        val steps = max(2, duration / 50)
+        for (step in 1..steps) {
+            later(duration.toLong() * step / steps) {
+                try {
+                    if (!result.isDone) move(x1 + (x2 - x1) * step / steps, y1 + (y2 - y1) * step / steps)
+                    if (step == steps || result.isDone) {
+                        buttonEvent(button, false)
+                        result.complete(ok())
+                    }
+                } catch (e: Exception) {
+                    buttonEvent(button, false)
+                    result.completeExceptionally(e)
+                }
+            }
+        }
+    }
+
+    private fun screenshot(result: CompletableFuture<JsonObject>) {
+        val image = Screenshot.takeScreenshot(mc.getMainRenderTarget())
+        try {
+            image.use {
+                ByteArrayOutputStream().use { output ->
+                    val png = BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB)
+                    for (y in 0 until image.getHeight()) for (x in 0 until image.getWidth()) png.setRGB(x, y, image.getPixel(x, y))
+                    ImageIO.write(png, "png", output)
+                    val content = JsonObject().apply {
+                        addProperty("mimeType", "image/png")
+                        addProperty("data", Base64.getEncoder().encodeToString(output.toByteArray()))
+                    }
+                    result.complete(content)
+                }
+            }
+        } catch (e: Exception) { result.completeExceptionally(e) }
+    }
+
+    fun frame() {
+        recordings.captureFrame()
+        while (screenshots.isNotEmpty()) {
+            val result = screenshots.remove()
+            if (!result.isDone) {
+                try { screenshot(result) } catch (e: Exception) { result.completeExceptionally(e) }
+            }
+        }
+    }
+
+    fun close() = recordings.close()
+
+    private fun state(): JsonObject = JsonObject().apply {
+        addProperty("version", SharedConstants.getCurrentVersion().id)
+        addProperty("width", mc.getWindow().getWidth())
+        addProperty("height", mc.getWindow().getHeight())
+        addProperty("gui_width", mc.getWindow().getGuiScaledWidth())
+        addProperty("gui_height", mc.getWindow().getGuiScaledHeight())
+        addProperty("window_width", mc.getWindow().getScreenWidth())
+        addProperty("window_height", mc.getWindow().getScreenHeight())
+        addProperty("mouse_x", mc.mouseHandler.xpos() * mc.getWindow().getWidth() / mc.getWindow().getScreenWidth())
+        addProperty("mouse_y", mc.mouseHandler.ypos() * mc.getWindow().getHeight() / mc.getWindow().getScreenHeight())
+        addProperty("screen", mc.screen?.javaClass?.simpleName ?: "gameplay")
+        addProperty("connected", mc.getConnection() != null)
+        addProperty("in_world", mc.level != null)
+        addProperty("paused", mc.isPaused())
+        addProperty("window_focused", GLFW.glfwGetWindowAttrib(window(), GLFW.GLFW_FOCUSED) == GLFW.GLFW_TRUE)
+        addProperty("mouse_grabbed", mc.mouseHandler.isMouseGrabbed())
+        addProperty("held_input_timeout_ms", 30000)
+        addProperty("recording", recordings.isRecording())
+        add("held_keys", JsonArray().apply { keys.sorted().forEach { add(it) } })
+        add("held_buttons", JsonArray().apply { buttons.sorted().forEach { add(it) } })
+        mc.getCurrentServer()?.let { addProperty("server", it.ip) }
+        mc.player?.let {
+            addProperty("x", it.getX())
+            addProperty("y", it.getY())
+            addProperty("z", it.getZ())
+            addProperty("yaw", it.getYRot())
+            addProperty("pitch", it.getXRot())
+        }
+    }
+
+    companion object {
+        private val LEASE_NANOS = TimeUnit.SECONDS.toNanos(30)
+        private val INPUT_ACTIONS = setOf("press", "hold", "release")
+        @JvmField val COMMANDS = setOf("state", "join", "move", "scroll", "click", "key", "type", "execute", "drag", "screenshot", "record")
+        @JvmField val BATCH_COMMANDS = COMMANDS - "record"
+        private fun ok(): JsonObject = JsonObject().apply { addProperty("ok", true) }
+        private fun blank(value: String): Boolean = value.codePoints().allMatch(Character::isWhitespace)
+
+        @JvmStatic
+        fun string(args: JsonObject, field: String, max: Int): String {
+            val value = args.get(field)
+            require(value != null && value.isJsonPrimitive && value.asJsonPrimitive.isString) { "$field must be a string" }
+            val text = value.asString
+            require(text.length <= max) { "$field is too long" }
+            return text
+        }
+
+        @JvmStatic
+        fun number(args: JsonObject?, field: String): Double {
+            require(args != null) { "Missing coordinates" }
+            val value = args.get(field)
+            require(value != null && value.isJsonPrimitive && value.asJsonPrimitive.isNumber) { "$field must be a number" }
+            val number = value.asDouble
+            require(number.isFinite() && abs(number) <= 1_000_000) { "$field out of range" }
+            return number
+        }
+
+        @JvmStatic
+        fun integer(args: JsonObject, field: String, min: Int, max: Int): Int {
+            val number = number(args, field)
+            require(number == Math.rint(number) && number >= min && number <= max) { "$field out of range" }
+            return number.toInt()
+        }
+
+        @JvmStatic
+        fun button(args: JsonObject): Int {
+            val button = args.get("button")
+            if (button != null && button.isJsonPrimitive && button.asJsonPrimitive.isString) {
+                return when (button.asString.lowercase(Locale.ROOT)) {
+                    "left" -> 0
+                    "right" -> 1
+                    "middle" -> 2
+                    else -> throw IllegalArgumentException("Unknown button")
+                }
+            }
+            return integer(args, "button", 0, 7)
+        }
+
+        @JvmStatic
+        fun keyCode(key: JsonElement?): Int = InputCodes.keyCode(key)
+    }
+}

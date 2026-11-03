@@ -25,22 +25,46 @@ test('manifest resolution selects the default or requested bundled version', asy
   await writeFile(path.join(root, 'compatibility.json'), JSON.stringify({
     defaultVersion: '26.3',
     versions: {
-      '26.2': { loader: '0.19.5', java: 25 },
-      '26.3': { loader: '0.19.5', java: 25 },
+      '1.21.4': {
+        loader: '0.16.10', java: 21,
+        mod: { file: 'artifacts/minecraft-control-1.21.4.jar', sha256: 'a'.repeat(64) },
+      },
+      '26.2': {
+        loader: '0.19.5', java: 25,
+        mod: { file: 'artifacts/minecraft-control.jar', sha256: 'b'.repeat(64) },
+      },
+      '26.3': {
+        loader: '0.19.5', java: 25,
+        mod: { file: 'artifacts/minecraft-control.jar', sha256: 'b'.repeat(64) },
+      },
     },
-    mod: { file: 'artifacts/minecraft-control.jar', sha256: 'abc123' },
   }));
 
   const manifest = await readManifest(root);
   assert.deepEqual(resolveVersion(manifest), {
     version: '26.3',
-    compatibility: { loader: '0.19.5', java: 25 },
+    compatibility: {
+      loader: '0.19.5', java: 25,
+      mod: { file: 'artifacts/minecraft-control.jar', sha256: 'b'.repeat(64) },
+    },
   });
   assert.deepEqual(resolveVersion(manifest, '26.2'), {
     version: '26.2',
-    compatibility: { loader: '0.19.5', java: 25 },
+    compatibility: {
+      loader: '0.19.5', java: 25,
+      mod: { file: 'artifacts/minecraft-control.jar', sha256: 'b'.repeat(64) },
+    },
+  });
+  assert.deepEqual(resolveVersion(manifest, '1.21.4'), {
+    version: '1.21.4',
+    compatibility: {
+      loader: '0.16.10', java: 21,
+      mod: { file: 'artifacts/minecraft-control-1.21.4.jar', sha256: 'a'.repeat(64) },
+    },
   });
   assert.throws(() => resolveVersion(manifest, '../26.3'), /No compatible bundled mod/);
+  assert.throws(() => resolveVersion(manifest, '1.21.5'), /No compatible bundled mod/);
+  assert.throws(() => resolveVersion(manifest, '26.1'), /No compatible bundled mod/);
 });
 
 test('readManifest rejects packages without required compatibility metadata', async (t) => {
