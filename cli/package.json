@@ -15,6 +15,7 @@
   "files": [
     "dist/**",
     "artifacts/minecraft-control.jar",
+    "artifacts/minecraft-control-1.21.4.jar",
     "compatibility.json",
     "skills/minecraft/SKILL.md",
     "README.md"

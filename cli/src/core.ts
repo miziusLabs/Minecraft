@@ -2,17 +2,26 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, access } from 'node:fs/promises';
 import path from 'node:path';
 
-export interface Compatibility { loader: string; java: number }
+export interface ModArtifact { file: string; sha256: string }
+export interface Compatibility { loader: string; java: number; mod: ModArtifact }
 export interface Manifest {
   defaultVersion: string;
   versions: Record<string, Compatibility>;
-  mod: { file: string; sha256: string };
 }
 
 export async function readManifest(packageRoot: string): Promise<Manifest> {
   const value = JSON.parse(await readFile(path.join(packageRoot, 'compatibility.json'), 'utf8')) as Manifest;
-  if (!value.versions || !value.mod?.file || !value.mod.sha256 || !value.defaultVersion) {
+  if (!value.defaultVersion || !value.versions || Object.keys(value.versions).length === 0
+      || !Object.hasOwn(value.versions, value.defaultVersion)) {
     throw new Error('Incomplete package compatibility manifest. Build the release package first.');
+  }
+  for (const [version, compatibility] of Object.entries(value.versions)) {
+    if (!version || !compatibility || typeof compatibility.loader !== 'string'
+        || !Number.isSafeInteger(compatibility.java) || compatibility.java < 8
+        || typeof compatibility.mod?.file !== 'string' || !compatibility.mod.file
+        || !/^[0-9a-f]{64}$/i.test(compatibility.mod.sha256)) {
+      throw new Error(`Incomplete package compatibility metadata for Minecraft ${version}. Build the release package first.`);
+    }
   }
   return value;
 }

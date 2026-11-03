@@ -9,4 +9,5 @@ cli/node_modules/
 cli/dist/
 cli/skills/
 cli/artifacts/minecraft-control.jar
+cli/artifacts/minecraft-control-1.21.4.jar
 cli/*.tgz

@@ -7,8 +7,12 @@ import org.apache.logging.log4j.core.LoggerContext
 import org.apache.logging.log4j.core.appender.AbstractAppender
 import org.apache.logging.log4j.core.config.LoggerConfig
 import org.apache.logging.log4j.core.config.Property
-import org.apache.logging.log4j.core.layout.PatternLayout
 import java.beans.PropertyChangeListener
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
@@ -22,12 +26,9 @@ class ClientLogs(private val context: LoggerContext = LoggerContext.getContext(f
     private var discarded = false
     private var closed = false
     private var attached = emptyList<LoggerConfig>()
-    private val eventLayout = PatternLayout.newBuilder()
-        .setPattern("[%d{HH:mm:ss}] [%t/%level] [%logger]: %msg%n%throwable")
-        .build()
-    private val appender = object : AbstractAppender("minecraft-control-${UUID.randomUUID()}", null, eventLayout, true, Property.EMPTY_ARRAY) {
+    private val appender = object : AbstractAppender("minecraft-control-${UUID.randomUUID()}", null, null, true, Property.EMPTY_ARRAY) {
         override fun append(event: LogEvent) {
-            val formatted = eventLayout.toSerializable(event)
+            val formatted = formatEvent(event)
             synchronized(lock) {
                 if (closed) return
                 formatted.reader().buffered().use { reader ->
@@ -66,6 +67,14 @@ class ClientLogs(private val context: LoggerContext = LoggerContext.getContext(f
             attached = (listOf(configuration.rootLogger) + configuration.loggers.values.filter { !it.isAdditive }).distinct()
             attached.forEach { it.addAppender(appender, null, null) }
         }
+    }
+
+    private fun formatEvent(event: LogEvent): String {
+        val timestamp = EVENT_TIME.format(Instant.ofEpochMilli(event.timeMillis).atZone(ZoneId.systemDefault()))
+        val message = "[$timestamp] [${event.threadName}/${event.level}] [${event.loggerName}]: ${event.message.formattedMessage}"
+        val thrown = event.thrown ?: return message
+        val stack = StringWriter().also { thrown.printStackTrace(PrintWriter(it)) }.toString().trimEnd()
+        return "$message\n$stack"
     }
 
     override fun close() {
@@ -125,5 +134,6 @@ class ClientLogs(private val context: LoggerContext = LoggerContext.getContext(f
     companion object {
         const val MAX_BUFFER_BYTES = 16 * 1024 * 1024
         const val MAX_BUFFER_LINES = 65536
+        private val EVENT_TIME = DateTimeFormatter.ofPattern("HH:mm:ss")
     }
 }

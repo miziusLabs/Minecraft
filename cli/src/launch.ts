@@ -67,8 +67,8 @@ export async function launch(root: string, packageRoot: string, requested: strin
     const active = await running(root);
     if (active) throw new Error(`Minecraft ${active.version} is already running. Run minecraft status or minecraft stop.`);
     await requireFreePort(port);
-    const mod = await readFile(path.resolve(packageRoot, manifest.mod.file));
-    if (createHash('sha256').update(mod).digest('hex') !== manifest.mod.sha256) throw new Error('Bundled mod checksum does not match the compatibility manifest.');
+    const mod = await readFile(path.resolve(packageRoot, compatibility.mod.file));
+    if (createHash('sha256').update(mod).digest('hex') !== compatibility.mod.sha256) throw new Error('Bundled mod checksum does not match the compatibility manifest.');
     const installation = await install(root, version, compatibility, progress);
     await initializeOptions(installation.instance, version, installation.optionsDataVersion);
     await atomicWrite(path.join(installation.instance, 'mods', 'minecraft-control.jar'), mod);
