@@ -11,6 +11,13 @@ val legacyMinecraft = minecraftVersion.startsWith("1.21.")
 val legacyScreenshotCallback = legacyMinecraft && minecraftVersion != "1.21.4"
 val legacyMinecraftApi = minecraftVersion in setOf("1.21.6", "1.21.7", "1.21.8")
 val recordInputMinecraft = minecraftVersion in setOf("1.21.9", "1.21.10", "1.21.11", "26.1", "26.1.1", "26.1.2")
+val legacyGameRendererMixin = if (legacyMinecraft) {
+    fileTree("src/versions/1.21.4-1.21.11/kotlin") {
+        include("com/mizius/control/mixin/GameRendererMixin.kt")
+    }
+} else {
+    files()
+}
 apply(plugin = if (legacyMinecraft) "net.fabricmc.fabric-loom-remap" else "net.fabricmc.fabric-loom")
 
 val javaVersion = providers.gradleProperty("java_version").orElse(if (legacyMinecraft) "21" else "25").get().toInt()
@@ -118,20 +125,17 @@ if (recordInputMinecraft) {
             "com/mizius/control/WindowFocusAccess.kt",
         )
     }
-    val legacyInputMixins = if (minecraftVersion.startsWith("1.21.")) {
-        fileTree("src/legacy/kotlin") {
-            include("com/mizius/control/mixin/GameRendererMixin.kt")
-        }
-    } else {
-        files()
-    }
     val recordInputApiSources = fileTree(
-        if (minecraftVersion.startsWith("26.1")) "src/legacy261/kotlin" else "src/legacy12111/kotlin"
+        if (minecraftVersion.startsWith("26.1")) {
+            "src/versions/26.1-26.1.2/kotlin"
+        } else {
+            "src/versions/1.21.9-1.21.11/kotlin"
+        }
     )
     tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileKotlin") {
         setSource(files(
             fileTree("src/main/kotlin") { exclude(recordInputReplacements) },
-            legacyInputMixins,
+            legacyGameRendererMixin,
             recordInputApiSources,
         ))
     }
@@ -152,24 +156,26 @@ if (recordInputMinecraft) {
         "com/mizius/control/RenderTargetAccess.kt",
         "com/mizius/control/WindowFocusAccess.kt",
     )
-    val legacySources = fileTree("src/legacy/kotlin") {
-        if (legacyScreenshotCallback) exclude("com/mizius/control/ScreenshotCapture.kt")
-        if (legacyMinecraftApi) exclude("com/mizius/control/MinecraftApi.kt")
-    }
-    val legacyScreenshotSources = if (legacyScreenshotCallback) {
-        fileTree("src/legacyAsync/kotlin")
-    } else {
-        files()
-    }
-    val legacyApiSources = if (legacyMinecraftApi) {
-        fileTree("src/legacy1216/kotlin")
-    } else {
-        files()
-    }
+    val legacySources = fileTree("src/versions/1.21.4-1.21.8/kotlin")
+    val legacyScreenshotSources = fileTree(
+        if (legacyScreenshotCallback) {
+            "src/versions/1.21.5-1.21.8/kotlin"
+        } else {
+            "src/versions/1.21.4/kotlin"
+        }
+    )
+    val legacyApiSources = fileTree(
+        if (legacyMinecraftApi) {
+            "src/versions/1.21.6-1.21.8/kotlin"
+        } else {
+            "src/versions/1.21.4-1.21.5/kotlin"
+        }
+    )
     tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileKotlin") {
         setSource(files(
             fileTree("src/main/kotlin") { exclude(replacementSources) },
             legacySources,
+            legacyGameRendererMixin,
             legacyScreenshotSources,
             legacyApiSources,
         ))
@@ -177,7 +183,7 @@ if (recordInputMinecraft) {
     tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileTestKotlin") {
         setSource(files(
             fileTree("src/test/kotlin") { exclude("com/mizius/control/InputCodesTest.kt") },
-            fileTree("src/legacyTest/kotlin"),
+            fileTree("src/versions/1.21.4-1.21.8/test/kotlin"),
         ))
     }
 }

@@ -20,6 +20,6 @@ The mod version comes from the repository root's `project.properties` file, shar
 
 The CLI package workflow builds one JAR for each of the 13 supported releases, copies them into `cli/artifacts`, and updates their checksums in `cli/compatibility.json`.
 
-Production Kotlin sources are in `src/main/kotlin`. Tests are in `src/test/kotlin`. Live gameplay checks require a working graphics driver and Minecraft instance. Multiplayer checks also need an authenticated account and a reachable server.
+Shared Kotlin sources are in `src/main/kotlin`. Version-specific replacements are in `src/versions/<version-range>/kotlin`, with folder names showing the Minecraft versions they cover. Gradle combines the applicable folders for each target. A 1.21.7 build uses the 1.21.4 through 1.21.8 base sources, the 1.21.5 through 1.21.8 screenshot adapter, the 1.21.6 through 1.21.8 API adapter, and the 1.21.4 through 1.21.11 game renderer mixin. Tests are in `src/test/kotlin`; the legacy input-code test is under `src/versions/1.21.4-1.21.8/test/kotlin`. Live gameplay checks require a working graphics driver and Minecraft instance. Multiplayer checks also need an authenticated account and a reachable server.
 
 The 26.x builds use Loom without remapping because Minecraft removed obfuscation in 26.1. The 1.21.x builds use Loom's remapping plugin and official Mojang mappings.
