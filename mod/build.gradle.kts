@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("net.fabricmc.fabric-loom") version "1.17.12" apply false
     id("net.fabricmc.fabric-loom-remap") version "1.17.12" apply false
@@ -19,7 +21,12 @@ val mixinClasses = if (legacyMinecraft) {
     listOf("KeyboardAccess", "MouseAccess", "MinecraftMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin")
 }
 
-version = "1.2.0"
+val projectProperties = Properties().apply {
+    rootProject.file("../project.properties").inputStream().use { load(it) }
+}
+version = requireNotNull(projectProperties.getProperty("version")) {
+    "Missing version in ../project.properties"
+}
 group = "com.mizius"
 
 base {

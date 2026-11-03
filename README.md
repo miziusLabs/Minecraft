@@ -37,6 +37,8 @@ minecraft control click 640 360 --button left
 
 The default window stays visible without taking foreground focus. Use `--foreground` to give it focus when it starts. The client listens for commands only on loopback.
 
+The mod and CLI package use the shared version in [`project.properties`](project.properties). Update its `version` property to change both versions.
+
 ## Development
 
 Build the mod from its directory.
@@ -58,6 +60,6 @@ npm run build
 
 ## Releases
 
-The `release.yml` workflow runs on pushes to `main` and can also run manually on `main`. It compares the stable version in `cli/package.json` with the latest GitHub release. If the version is newer, or no release exists, it builds and publishes a release tagged `v<version>` with the packaged `minecraft.tgz` attached. Otherwise it skips the build.
+The `release.yml` workflow runs on pushes to `main` and can also run manually on `main`. It compares the stable version in `project.properties` with the latest GitHub release. If the version is newer, or no release exists, it builds and publishes a release tagged `v<version>` with the packaged `minecraft.tgz` attached. Otherwise it skips the build.
 
 See the [CLI release instructions](cli/README.md#publishing) for version updates and release permissions. Publishing and installing public releases do not require an npm account.

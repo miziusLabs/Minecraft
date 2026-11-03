@@ -120,15 +120,16 @@ Run the CLI test suite with `npm test`.
 
 ## Publishing
 
-The `release.yml` workflow runs on pushes to `main` and supports manual runs on `main` through GitHub Actions. It compares `cli/package.json` with the latest published GitHub release. A newer stable version triggers a build. If there is no release yet, it publishes the first stable version. Equal versions, older versions, and prerelease versions skip the build. Release lookup errors fail the workflow.
+The `release.yml` workflow runs on pushes to `main` and supports manual runs on `main` through GitHub Actions. It compares the version in the repository's `project.properties` file with the latest published GitHub release. A newer stable version triggers a build. If there is no release yet, it publishes the first stable version. Equal versions, older versions, and prerelease versions skip the build. Release lookup errors fail the workflow.
 
-From the `cli` directory, update both version files without creating a local Git tag.
+Update the `version` property in `../project.properties`. Sync the CLI package metadata before installing dependencies. The build command also syncs it automatically.
 
 ```powershell
-npm version patch --no-git-tag-version
+node scripts/sync-version.mjs
+npm ci
 ```
 
-Use `minor` or `major` instead of `patch` when appropriate. Commit `package.json` and `package-lock.json`, then merge into `main`.
+Commit `project.properties`, `package.json`, and `package-lock.json`, then merge into `main`.
 
 When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. Packaging builds the mod JAR that the CLI bundles. After checks pass, it creates the tag `v<version>` at the tested commit and attaches the tested `minecraft.tgz` archive without rebuilding it. Release notes list merged pull request titles under `## Changes`. When GitHub has no merged pull request notes, they list commit subjects since the previous release tag. They omit contributor names and URLs. Existing release tags must not be reused.
 

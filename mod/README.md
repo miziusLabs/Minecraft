@@ -16,6 +16,8 @@ Build the Fabric mod from this directory.
 
 The default Minecraft version is 26.3. Build against 26.2 with `-Pminecraft_version=26.2`. Build the 1.21.4 variant with `-Pminecraft_version=1.21.4`.
 
+The mod version comes from the repository root's `project.properties` file, shared with the CLI package version.
+
 The CLI package workflow builds separate JARs for 1.21.4 and 26.3. It uses the 26.3 JAR for both 26.2 and 26.3, copies the artifacts into `cli/artifacts`, and updates their checksums in `cli/compatibility.json`.
 
 Production Kotlin sources are in `src/main/kotlin`. Tests are in `src/test/kotlin`. Live gameplay checks require a working graphics driver and Minecraft instance. Multiplayer checks also need an authenticated account and a reachable server.

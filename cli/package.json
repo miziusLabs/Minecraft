@@ -27,7 +27,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/package-skill.mjs",
+    "build": "node scripts/sync-version.mjs && tsc -p tsconfig.json && node scripts/package-skill.mjs",
     "test": "npm run build && node --test --experimental-strip-types test/*.test.ts",
     "prepack": "npm run build && node scripts/package-mod.mjs"
   },
