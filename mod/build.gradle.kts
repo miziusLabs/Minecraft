@@ -19,7 +19,7 @@ val mixinClasses = if (legacyMinecraft) {
     listOf("KeyboardAccess", "MouseAccess", "MinecraftMixin", "InputConstantsMixin", "WindowMixin", "WindowCreationMixin")
 }
 
-version = "1.1.0"
+version = "1.2.0"
 group = "com.mizius"
 
 base {
