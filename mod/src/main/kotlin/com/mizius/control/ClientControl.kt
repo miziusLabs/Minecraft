@@ -52,7 +52,7 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
         if (!active() && (keys.isNotEmpty() || buttons.isNotEmpty())) releaseAll()
         while (pending.isNotEmpty() && pending.peek().due <= System.nanoTime()) pending.remove().task()
         // Focus loss and opening screens can reset Minecraft's key mappings.
-        if (active() && mc.gui.screen() == null) {
+        if (active() && ClientScreenAccess.current(mc) == null) {
             for (key in keys) KeyMapping.set(InputCodes.key(key), true)
             for (button in buttons) KeyMapping.set(InputConstants.Type.MOUSE.getOrCreate(InputCodes.mouseButton(button)), true)
         }
@@ -129,9 +129,9 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
                         else result.complete(ok())
                     }
                     "type" -> {
-                        check(mc.gui.screen() != null) { "Open a text interface first, for example with key T" }
+                        check(ClientScreenAccess.current(mc) != null) { "Open a text interface first, for example with key T" }
                         string(args, "text", 32768).codePoints().forEach { cp ->
-                            keyboard().`control$charTyped`(window(), CharacterEvent(cp))
+                            keyboard().`control$charTyped`(window(), ClientInputEventAccess.character(cp, modifiers()))
                         }
                         result.complete(ok())
                     }
@@ -200,7 +200,7 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
     }
 
     private fun screenshot(result: CompletableFuture<JsonObject>) {
-        Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget()) { image ->
+        Screenshot.takeScreenshot(RenderTargetAccess.current(mc)) { image ->
             try {
                 image.use {
                     ByteArrayOutputStream().use { output ->
@@ -240,11 +240,11 @@ class ClientControl(private val mc: Minecraft) : ControlServer.Tools {
         addProperty("window_height", mc.getWindow().getScreenHeight())
         addProperty("mouse_x", mc.mouseHandler.xpos() * mc.getWindow().getWidth() / mc.getWindow().getScreenWidth())
         addProperty("mouse_y", mc.mouseHandler.ypos() * mc.getWindow().getHeight() / mc.getWindow().getScreenHeight())
-        addProperty("screen", mc.gui.screen()?.javaClass?.simpleName ?: "gameplay")
+        addProperty("screen", ClientScreenAccess.current(mc)?.javaClass?.simpleName ?: "gameplay")
         addProperty("connected", mc.getConnection() != null)
         addProperty("in_world", mc.level != null)
         addProperty("paused", mc.isPaused())
-        addProperty("window_focused", mc.getWindow().isFocused())
+        addProperty("window_focused", WindowFocusAccess.isFocused(mc))
         addProperty("mouse_grabbed", mc.mouseHandler.isMouseGrabbed())
         addProperty("held_input_timeout_ms", 30000)
         addProperty("recording", recordings.isRecording())

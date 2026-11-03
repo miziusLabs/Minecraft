@@ -47,7 +47,7 @@ minecraft launch 26.2 --username Agent
 
 The launch command waits for the local command endpoint and returns the client process, instance directory, log path, and port. Use `minecraft status --json` to inspect the running client. Use `minecraft stop` to stop it before switching versions.
 
-The bundled mod supports Minecraft 1.21.4, 26.2, and 26.3. The CLI accepts only those exact versions. Versions between them are not supported.
+The bundled mod supports every stable Minecraft Java release from 1.21.4 through 26.3. This includes 1.21.4 through 1.21.11 and 26.1, 26.1.1, 26.1.2, 26.2, and 26.3. The CLI accepts only versions listed by `minecraft versions`.
 
 Launch Minecraft 1.21.4 explicitly.
 
@@ -114,7 +114,7 @@ npm run build
 
 The CLI sources and tests live here. The Fabric mod and its Gradle wrapper live in `../mod`. The agent skill source lives in `../skills/minecraft/SKILL.md`. `npm run build` compiles the CLI and copies the skill into the package staging directory `skills/minecraft`.
 
-`npm pack` builds the CLI and the Gradle project in `../mod`. It creates a Java 21 mod JAR for 1.21.4 and a Java 25 mod JAR shared by 26.2 and 26.3, then updates their SHA-256 values in `compatibility.json`. The package includes the compiled CLI, both mod JARs, the compatibility manifest, README, and skill. It has no `preinstall`, `install`, or `prepare` hook. Installing the package does not download Minecraft or start the game. The CLI checks for updates only when `minecraft update` or `minecraft launch` runs.
+`npm pack` builds the CLI and the Gradle project in `../mod`. It creates one mod JAR for each supported Minecraft version, then updates their SHA-256 values in `compatibility.json`. Minecraft 1.21.x uses Java 21. Minecraft 26.x uses Java 25. The package includes the compiled CLI, all 13 mod JARs, the compatibility manifest, README, and skill. It has no `preinstall`, `install`, or `prepare` hook. Installing the package does not download Minecraft or start the game. The CLI checks for updates only when `minecraft update` or `minecraft launch` runs.
 
 Run the CLI test suite with `npm test`.
 

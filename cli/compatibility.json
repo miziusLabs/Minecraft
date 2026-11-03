@@ -2,27 +2,107 @@
   "defaultVersion": "26.3",
   "versions": {
     "1.21.4": {
-      "loader": "0.16.10",
+      "loader": "0.20.1",
       "java": 21,
       "mod": {
         "file": "artifacts/minecraft-control-1.21.4.jar",
-        "sha256": "ee427dd645366c90746ed10e45603cc12e23735c84e3e7d16dd83cc348b596ee"
+        "sha256": "d29a14c3f9a1f42c0d10ee0f40de543c0aa67701732e9a233038fc57d2483574"
+      }
+    },
+    "1.21.5": {
+      "loader": "0.20.1",
+      "java": 21,
+      "mod": {
+        "file": "artifacts/minecraft-control-1.21.5.jar",
+        "sha256": "d155a9f0ae99a1cf2b8d8d644fd33248304481e51539accc37e317ba140ce671"
+      }
+    },
+    "1.21.6": {
+      "loader": "0.20.1",
+      "java": 21,
+      "mod": {
+        "file": "artifacts/minecraft-control-1.21.6.jar",
+        "sha256": "269601832d4aa651aabf96162bd89ce589fe1b18a1f0d113dd2063a379a13589"
+      }
+    },
+    "1.21.7": {
+      "loader": "0.20.1",
+      "java": 21,
+      "mod": {
+        "file": "artifacts/minecraft-control-1.21.7.jar",
+        "sha256": "0f902a0b7aa3f4910df1717c44537fc9b7bb70d0e829d2ef6ef5e4d5421b9bc4"
+      }
+    },
+    "1.21.8": {
+      "loader": "0.20.1",
+      "java": 21,
+      "mod": {
+        "file": "artifacts/minecraft-control-1.21.8.jar",
+        "sha256": "f6cfb8c236c54834ba91a92e31f1047f8d34975484e873fb30a1bcf6038026c0"
+      }
+    },
+    "1.21.9": {
+      "loader": "0.20.1",
+      "java": 21,
+      "mod": {
+        "file": "artifacts/minecraft-control-1.21.9.jar",
+        "sha256": "93d84eb2b171ae9abd10121fb6478f33fc49c478db2493e5eaa55dbd5d40b74c"
+      }
+    },
+    "1.21.10": {
+      "loader": "0.20.1",
+      "java": 21,
+      "mod": {
+        "file": "artifacts/minecraft-control-1.21.10.jar",
+        "sha256": "9de6e0f2883e0916cc61074b659700c9f0b25a3cef1e54773a36fe50ea4f9686"
+      }
+    },
+    "1.21.11": {
+      "loader": "0.20.1",
+      "java": 21,
+      "mod": {
+        "file": "artifacts/minecraft-control-1.21.11.jar",
+        "sha256": "be27d4fe7b9ae74d16a54c2ede1072926ed944c5a830bb72cfb73999653cd541"
+      }
+    },
+    "26.1": {
+      "loader": "0.20.1",
+      "java": 25,
+      "mod": {
+        "file": "artifacts/minecraft-control-26.1.jar",
+        "sha256": "a417c6ff8194440765e55318914494cf851f936dda30c2094d9552e2bb2e8ff4"
+      }
+    },
+    "26.1.1": {
+      "loader": "0.20.1",
+      "java": 25,
+      "mod": {
+        "file": "artifacts/minecraft-control-26.1.1.jar",
+        "sha256": "98a2df604ec6d78e569ea781d11fcdf26c80233b0e24f7e1f3d23b3787918720"
+      }
+    },
+    "26.1.2": {
+      "loader": "0.20.1",
+      "java": 25,
+      "mod": {
+        "file": "artifacts/minecraft-control-26.1.2.jar",
+        "sha256": "8835f9079afbb72eb7b1cb18b167c5c98496d19697a8d97fd25be253fcc2fbbf"
       }
     },
     "26.2": {
-      "loader": "0.19.5",
+      "loader": "0.20.1",
       "java": 25,
       "mod": {
-        "file": "artifacts/minecraft-control.jar",
-        "sha256": "1ca68f5ad58b44801e08b6cd26d723a9a419fc45e3dcd560237bd36a390eff44"
+        "file": "artifacts/minecraft-control-26.2.jar",
+        "sha256": "c6474720e23cbea34ee20c41dd6ce08a3b2f4d12a1103565ac67f92fc4efe449"
       }
     },
     "26.3": {
-      "loader": "0.19.5",
+      "loader": "0.20.1",
       "java": 25,
       "mod": {
-        "file": "artifacts/minecraft-control.jar",
-        "sha256": "1ca68f5ad58b44801e08b6cd26d723a9a419fc45e3dcd560237bd36a390eff44"
+        "file": "artifacts/minecraft-control-26.3.jar",
+        "sha256": "52f661e972ea5b4f618f82696758f6c02ce4b03aa008f4185d39f3446ae2b7e6"
       }
     }
   }

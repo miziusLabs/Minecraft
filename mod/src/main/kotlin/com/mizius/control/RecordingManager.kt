@@ -43,7 +43,7 @@ class RecordingManager(private val mc: Minecraft) : AutoCloseable {
             if (previous?.isAcceptingFrames() == true) "A recording is already active" else "The previous recording is still finishing"
         }
 
-        val target = mc.gameRenderer.mainRenderTarget()
+        val target = RenderTargetAccess.current(mc)
         require(target.width > 0 && target.height > 0) { "The game window has no renderable pixels" }
         val scale = min(1.0, min(MAX_WIDTH.toDouble() / target.width, MAX_HEIGHT.toDouble() / target.height))
         val width = even((target.width * scale).toInt())
@@ -69,7 +69,7 @@ class RecordingManager(private val mc: Minecraft) : AutoCloseable {
         val session = current ?: return
         if (!session.requestCapture()) return
         try {
-            Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget()) { image ->
+            Screenshot.takeScreenshot(RenderTargetAccess.current(mc)) { image ->
                 try {
                     image.use {
                         session.submit(readPixels(image, session.width, session.height))

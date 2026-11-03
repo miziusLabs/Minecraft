@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.At
 import org.spongepowered.asm.mixin.injection.Inject
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable
 
-// The GLFW constructor exists in 26.2. The SDL constructor in 26.3 uses WindowMixin.
+// GLFW remains in 26.1 and 26.2. The SDL constructor in 26.3 uses WindowMixin.
 @Inject(
     method = ["createGlfwWindow"],
     at = [At(value = "INVOKE", target = "Lorg/lwjgl/glfw/GLFW;glfwCreateWindow(IILjava/lang/CharSequence;JJ)J", remap = false)],
