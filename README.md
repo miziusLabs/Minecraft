@@ -39,6 +39,16 @@ The default window stays visible without taking foreground focus. Use `--foregro
 
 The mod and CLI package use the shared version in [`project.properties`](project.properties). Update its `version` property to change both versions.
 
+## Remote devices and servers
+
+Run `minecraft host launch` on the Minecraft device with cloudflared installed. Set `TUNNEL` on a controller to the complete URL it prints. Client launches, controls, and server commands then run on the host. Linux controllers need only Node.js and this CLI. Client launching remains Windows x64 only.
+
+`minecraft server launch --version 1.21.4 --no-reset --accept-eula` starts a versioned Paper server after you accept the Minecraft EULA. `--version Paper/26.2`, `Folia/1.21.11`, and `Vanilla/1.21.4` select the software explicitly. `server status`, `server command`, `server restart`, and `server stop` all accept `--version`. Servers preserve their files by default and can run locally on Windows or Linux.
+
+With OpenSSH running on the host, `ssh -o 'ProxyCommand=minecraft host proxy' user@minecraft-host` connects through the same tunnel. SCP, SFTP, remote commands, and SSH forwarding work with the same proxy option and normal SSH authentication.
+
+See the [remote host, server, and SSH setup](cli/README.md#remote-hosts-and-linux-controllers) for prerequisites, secure connection instructions, and file transfer examples.
+
 ## Development
 
 Build the mod from its directory.
