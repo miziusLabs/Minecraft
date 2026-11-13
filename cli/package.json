@@ -31,7 +31,8 @@
     "prepack": "npm run build && node scripts/package-mod.mjs"
   },
   "dependencies": {
-    "adm-zip": "^0.6.1"
+    "adm-zip": "^0.6.1",
+    "tar": "^7.5.23"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",

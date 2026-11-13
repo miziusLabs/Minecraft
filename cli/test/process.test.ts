@@ -17,7 +17,7 @@ const expected: Identity = {
 
 test('matchesProcess requires matching process identity and instance command line', () => {
   const instance = 'C:\\Users\\Jan Kramer\\AppData\\Local\\mizius\\Minecraft\\instances\\26.3';
-  assert.equal(matchesProcess({ ...expected, executable: expected.executable.toLowerCase() }, expected, instance), true);
+  assert.equal(matchesProcess({ ...expected, executable: expected.executable.toLowerCase() }, expected, instance), process.platform === 'win32');
   assert.equal(matchesProcess(null, expected, instance), false);
   assert.equal(matchesProcess({ ...expected, pid: 1235 }, expected, instance), false);
   assert.equal(matchesProcess({ ...expected, started: '2026-11-01T10:00:01.000Z' }, expected, instance), false);
@@ -135,4 +135,22 @@ test('stopClient checks the start time and handles long process command lines', 
       }),
     ]);
   } finally { if (timeout) clearTimeout(timeout); }
+});
+
+test('Linux process identity preserves argument boundaries and protects stale records', { skip: process.platform !== 'linux' }, async (t) => {
+  const instance = '/tmp/managed instance';
+  const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)', '--', '--gameDir', instance]);
+  t.after(() => { if (child.exitCode === null) child.kill('SIGKILL'); });
+  await once(child, 'spawn');
+  const actual = await identity(child.pid!);
+  assert.ok(actual);
+  assert.equal(matchesProcess(actual, actual, instance), true);
+  assert.equal(matchesProcess(actual, actual, `${instance}-backup`), false);
+  const record = { identity: { ...actual, started: 'stale' }, instance, version: '26.3', log: '', port: 8765 };
+  await stopClient(record);
+  assert.ok(await identity(child.pid!));
+  const exited = once(child, 'exit');
+  await stopClient({ ...record, identity: actual });
+  await exited;
+  assert.equal(await identity(child.pid!), null);
 });
