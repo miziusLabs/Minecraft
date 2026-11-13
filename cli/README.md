@@ -1,10 +1,10 @@
 # @mizius/minecraft
 
-`@mizius/minecraft` is a Windows x64 command line tool for launching and controlling an isolated Minecraft Java client. It installs Minecraft, Fabric Loader, Java, and the bundled control mod into a managed directory. The CLI sends commands to the running game over loopback.
+`@mizius/minecraft` is a command line tool for launching and controlling an isolated Minecraft Java client. It installs Minecraft, Fabric Loader, Java, and the bundled control mod into a managed directory. The CLI sends commands to the running game over loopback.
 
 ## Requirements
 
-- Windows x64.
+- Windows x64 for local client launches. Linux and macOS can control a remote host; servers can also run on Linux.
 - Node.js 22 or newer.
 - A network connection on first launch to download Minecraft, Fabric Loader, Java, libraries, and assets.
 
@@ -134,3 +134,82 @@ Commit `project.properties`, `package.json`, and `package-lock.json`, then merge
 When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. Packaging builds the mod JAR that the CLI bundles. After checks pass, it creates the tag `v<version>` at the tested commit and attaches the tested `minecraft.tgz` archive without rebuilding it. Release notes list merged pull request titles under `## Changes`. When GitHub has no merged pull request notes, they list commit subjects since the previous release tag. They omit contributor names and URLs. Existing release tags must not be reused.
 
 Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. The public repository lets users download release assets without authentication.
+
+## Remote hosts and Linux controllers
+
+Install the CLI on both devices. Only the host that launches Minecraft clients needs Windows x64. Controllers can run Linux, Windows, or macOS with Node.js 22 or newer. Linux controllers do not need Java, a display, or Minecraft. Without `TUNNEL`, existing client commands still run locally.
+
+On the host, install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) and add it to `PATH`, then run the host in a terminal that stays open.
+
+```powershell
+minecraft host launch
+```
+
+The command prints `TUNNEL=https://<random-name>.trycloudflare.com/#<token>`. Copy the entire URL, including the fragment, to the controller. Treat it as a password. It grants control of clients and servers and access to the SSH transport. Commands authenticate with a bearer header, not a token in the request URL. The host's command listener binds only to loopback.
+
+On a Linux controller, use the URL printed by the host.
+
+```sh
+export TUNNEL='https://<random-name>.trycloudflare.com/#<token>'
+minecraft launch 1.21.4 --username Agent --json
+minecraft status --json
+minecraft control state --json
+minecraft control screenshot --output ./screen.png
+minecraft control join localhost:25565
+minecraft stop --json
+```
+
+In PowerShell, set `$env:TUNNEL = 'https://<random-name>.trycloudflare.com/#<token>'`. Client and server processes run on the host, even when a controller launches them. Server addresses such as `localhost` refer to the host. Screenshots save on the controller; recordings and game files stay on the host and can be retrieved with SCP or SFTP. `--foreground` is local-only. `skill`, `update`, and `host` manage the device where the CLI runs rather than going through `TUNNEL`.
+
+Keep `minecraft host launch` running for remote access. Ctrl+C closes the tunnel and active SSH transports but does not stop detached Minecraft clients or servers. Starting another host session creates a new URL and token. Cloudflare Quick Tunnels are temporary and have no availability guarantee. Both devices need access to Cloudflare. For a loopback-only host without cloudflared, use `minecraft host launch --local`. This is useful for local integration tests or an independently secured HTTPS reverse proxy that supports WebSockets. Non-loopback `TUNNEL` URLs must use HTTPS.
+
+## Servers
+
+Servers can run on Windows or Linux. Install the Java version required by the Minecraft version. The CLI checks it before launch. Set `JAVA_21_HOME`, `JAVA_25_HOME`, `JAVA_HOME`, or `MINECRAFT_JAVA` to select Java. Version-specific `JDK_<major>_HOME`, `JAVA<major>_HOME`, and `JDK<major>_HOME` names also work. The server uses a 1 GB maximum heap. In remote mode these variables belong on the host. The server runs Paper by default, separate from the managed client.
+
+Read the [Minecraft EULA](https://aka.ms/MinecraftEULA) before accepting it. Pass `--accept-eula` once, or put `eula=true` in the version's `eula.txt` yourself.
+
+```sh
+minecraft server launch --version 1.21.4 --no-reset --accept-eula
+minecraft server status --version 1.21.4 --json
+minecraft server command 'say Hello from the CLI' --version 1.21.4
+minecraft server restart --version 1.21.4 --no-reset
+minecraft server stop --version 1.21.4
+```
+
+Each software and version pair has its own `servers/<Paper|Folia|Vanilla>/<version>` folder under the managed directory. `--no-reset` preserves worlds, configuration, plugins, and other existing files. Preservation is also the default. `--reset` explicitly deletes that version's folder before preparing a fresh server. It cannot be combined with `--no-reset`. A launch refuses to replace a running server; use `restart` to stop it first. Downloads use the publisher's checksums. Servers keep running after the launching CLI exits. `status` distinguishes a live process from a server that has logged its readiness message. Console commands require readiness and acknowledge delivery; inspect `console.log` or the server's `logs/latest.log` for their output. Stop waits for startup to finish before sending a console stop command. If shutdown does not complete within two minutes, the manager force-stops Java and reports `forced: true`.
+
+Use the same software/version syntax as the standalone server script. Plain versions select Paper. Software names are case-insensitive, and `-v` is an alias for `--version`.
+
+```sh
+minecraft server launch --version Paper/26.2 --no-reset --accept-eula --port 25568
+minecraft server launch --version Folia/1.21.11 --no-reset --accept-eula --port 25569
+minecraft server restart --version Folia/1.21.11 --no-reset
+minecraft server launch --version Vanilla/1.21.4 --no-reset --accept-eula
+```
+
+You can also use `--version 1.21.4 --software paper`, `--software folia`, or `--software vanilla`. Use the same selection for status, console commands, stop, and restart. Paper and Folia support their respective plugin APIs. The CLI creates a `plugins` folder for either. It does not build or copy a particular project's plugin automatically. Upload the built plugin over SSH, then restart the server. Folia requires plugins that explicitly support its threaded server model.
+
+The CLI pins the downloaded Paper or Folia build for each software/version pair. Ordinary restarts do not upgrade the jar. Only use versions available from the selected publisher. Minecraft and server software still apply their own world and configuration migrations.
+
+Servers default to port 25565. Use `--port` or edit each version's `server.properties` to run different versions at the same time. Ports 18765 and 18766 are reserved for CLI operation locks. Server gameplay ports are not exposed by the command tunnel. A client running on the same host can join `localhost:<port>`. For a client on another device, use the host's network address or SSH port forwarding.
+
+The managed directory defaults to `%LOCALAPPDATA%\mizius\Minecraft` on Windows and `~/.mizius/minecraft` on Linux. Set `mizius_minecraft_home` on the host to change it. The launch and status output report the actual server directory and log path.
+
+## SSH, SCP, and SFTP through the tunnel
+
+Run an OpenSSH server on the host with normal user authentication. The CLI forwards SSH bytes to `127.0.0.1:22` through an authenticated WebSocket on the same tunnel. It does not create accounts, manage keys, disable host-key checking, or bypass SSH authentication. Use `minecraft host launch --ssh-port 2222` if the host's SSH service uses another port. No public SSH port or router port forwarding is required.
+
+For a Windows host, install and start the optional OpenSSH Server component from an administrator PowerShell session, then configure your account's authorized keys according to the [Windows OpenSSH instructions](https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse). Prefer key authentication. Use a normal host account with access to the managed directory. On Linux, install and start the distribution's OpenSSH server.
+
+With `TUNNEL` set on the controller and `minecraft` on its `PATH`, use normal SSH tools.
+
+```sh
+ssh -o 'ProxyCommand=minecraft host proxy' user@minecraft-host
+scp -o 'ProxyCommand=minecraft host proxy' ./plugin.jar user@minecraft-host:/path/to/servers/Paper/1.21.4/plugins/
+scp -o 'ProxyCommand=minecraft host proxy' user@minecraft-host:/path/to/servers/Paper/1.21.4/logs/latest.log ./latest.log
+sftp -o 'ProxyCommand=minecraft host proxy' user@minecraft-host
+ssh -o 'ProxyCommand=minecraft host proxy' -L 25565:localhost:25565 user@minecraft-host
+```
+
+Replace `user` and the file paths with the host's real values. `minecraft-host` is a stable SSH host-key alias; choose a different alias for each host. SSH authenticates the host and user as usual. Keep host-key checking enabled. Remote paths use the SSH server's path syntax, which may differ on Windows. SSH shells, remote commands, uploads, downloads, and standard TCP forwarding all use the same transport. Restart a plugin server after uploading a plugin.
