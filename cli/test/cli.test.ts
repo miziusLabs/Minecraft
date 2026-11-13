@@ -27,11 +27,7 @@ test('CLI prints help and lists bundled versions as JSON without launching a cli
   });
 });
 
-test('CLI explains that self-update requires the documented global npm installation', async (t) => {
-  if (process.platform !== 'win32' || process.arch !== 'x64') {
-    t.skip('The managed CLI currently supports Windows x64 only.');
-    return;
-  }
+test('CLI explains that self-update requires the documented global npm installation', async () => {
 
   await assert.rejects(
     run('update', '--json'),
