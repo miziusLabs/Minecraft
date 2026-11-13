@@ -91,7 +91,7 @@ On Windows, the CLI stores downloaded files, per-version instances, logs, and pr
 
 The CLI creates settings only when an instance has no `options.txt`. It opens a 1280 by 720 window with GUI scale 2 and FOV 90. Sprint uses R. Master volume is muted, and pause on focus loss is disabled. The CLI leaves existing `options.txt` files in place.
 
-Graphics use the Custom preset, with clouds, ambient occlusion, and entity shadows off. Render distance is 8 chunks, simulation distance is 5 chunks, and the frame rate is capped at 60 FPS. Java uses a 4 GB maximum heap.
+Graphics use the Custom preset, with clouds, ambient occlusion, and entity shadows off. Render distance is 4 chunks, simulation distance is 2 chunks, and the frame rate is capped at 60 FPS. Java uses a 4 GB maximum heap.
 
 The default command port is 8765. If another program uses it, leave that program running and choose a free port with `--port`.
 

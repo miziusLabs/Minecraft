@@ -85,6 +85,8 @@ test('initializeOptions writes defaults once and preserves player edits', async 
   assert.match(initial, /version:4000\n/);
   assert.match(initial, /fov:0\.5\n/);
   assert.match(initial, /key_key\.sprint:key\.keyboard\.r\n/);
+  assert.match(initial, /renderDistance:4\n/);
+  assert.match(initial, /simulationDistance:2\n/);
   assert.match(initial, /maxFps:60\n/);
 
   const edited = initial.replace('fullscreen:false', 'fullscreen:true');

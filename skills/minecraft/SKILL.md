@@ -36,7 +36,7 @@ The CLI runs an offline profile and does not sign in to a Microsoft account. Ser
 
 The managed client runs on Windows or Linux x64. On Windows, it stores data under `%LOCALAPPDATA%\mizius\Minecraft` by default. Set `mizius_minecraft_home` to use another managed directory.
 
-The default window is 1280 by 720 with GUI scale 2 and FOV 90. Sprint uses R. The client mutes master volume and does not pause on focus loss. New instances use the Custom graphics preset, 8 chunk render distance, 5 chunk simulation distance, and a 60 FPS cap. Existing instance settings remain unchanged.
+The default window is 1280 by 720 with GUI scale 2 and FOV 90. Sprint uses R. The client mutes master volume and does not pause on focus loss. New instances use the Custom graphics preset, 4 chunk render distance, 2 chunk simulation distance, and a 60 FPS cap. Existing instance settings remain unchanged.
 
 Run `minecraft --help` for all commands. The command port defaults to 8765. Use `--port` to select another free port. The CLI reserves port 18765 while it installs, starts, or stops a client.
 

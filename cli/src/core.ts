@@ -55,7 +55,7 @@ export function defaultOptions(_version: string, dataVersion: number): string {
     'fov:0.5', 'key_key.sprint:key.keyboard.r', 'pauseOnLostFocus:false',
     'soundCategory_master:0.0', 'onboardAccessibility:false', 'tutorialStep:none',
     // Preset callbacks do not apply during startup, so write their individual settings.
-    'graphicsPreset:"custom"', 'renderDistance:8', 'simulationDistance:5', 'renderClouds:false',
+    'graphicsPreset:"custom"', 'renderDistance:4', 'simulationDistance:2', 'renderClouds:false',
     'ao:false', 'biomeBlendRadius:1', 'entityShadows:false', 'entityDistanceScaling:0.75',
     'mipmapLevels:2', 'particles:1', 'cloudRange:32', 'cutoutLeaves:false',
     'improvedTransparency:false', 'weatherRadius:5', 'maxAnisotropyBit:1', 'textureFiltering:0',
