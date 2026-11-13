@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, readlink } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import path from 'node:path';
 
@@ -19,6 +19,32 @@ async function powershell(script: string): Promise<string> {
 
 export async function identity(pid: number): Promise<Identity | null> {
   if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('Invalid process identifier.');
+  if (process.platform === 'linux') {
+    try {
+      const readStat = () => readFile(`/proc/${pid}/stat`, 'utf8');
+      const before = await readStat();
+      if (['Z', 'X'].includes(before.slice(before.lastIndexOf(')') + 2).split(' ')[0]!)) return null;
+      const [executable, commandLine, boot] = await Promise.all([
+        readlink(`/proc/${pid}/exe`), readFile(`/proc/${pid}/cmdline`, 'utf8'),
+        readFile('/proc/sys/kernel/random/boot_id', 'utf8'),
+      ]);
+      const after = await readStat();
+      const start = (stat: string) => stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19];
+      if (start(before) !== start(after) || !commandLine) return null;
+      return { pid, started: `${boot.trim()}:${start(after)}`, executable, commandLine };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EACCES') {
+        try {
+          const stat = await readFile(`/proc/${pid}/stat`, 'utf8');
+          if (['Z', 'X'].includes(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0]!)) return null;
+        } catch (statError) {
+          if (['ENOENT', 'ESRCH'].includes((statError as NodeJS.ErrnoException).code ?? '')) return null;
+        }
+      }
+      if (['ENOENT', 'ESRCH'].includes((error as NodeJS.ErrnoException).code ?? '')) return null;
+      throw error;
+    }
+  }
   const json = await powershell(`$p=Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}'; if($p){ @{pid=[int]$p.ProcessId;started=$p.CreationDate.ToUniversalTime().ToString('o');executable=$p.ExecutablePath;commandLine=$p.CommandLine} | ConvertTo-Json -Compress }`);
   return json ? JSON.parse(json) as Identity : null;
 }
@@ -26,9 +52,13 @@ export async function identity(pid: number): Promise<Identity | null> {
 export function matchesProcess(actual: Identity | null, expected: Identity, instance: string): boolean {
   const escaped = instance.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const gameDirectory = new RegExp(`(?:^|\\s)--gameDir\\s+(?:"${escaped}"|${escaped}(?=\\s|$))`);
+  const args = actual?.commandLine.split('\0') ?? [];
+  const directoryMatches = process.platform === 'linux' && args.length > 1
+    ? args.some((arg, index) => arg === '--gameDir' && args[index + 1] === instance)
+    : gameDirectory.test(actual?.commandLine ?? '');
   return !!actual && actual.pid === expected.pid && actual.started === expected.started &&
-    !!actual.executable && actual.executable.toLowerCase() === expected.executable.toLowerCase() &&
-    !!actual.commandLine && actual.commandLine === expected.commandLine && gameDirectory.test(actual.commandLine);
+    !!actual.executable && (process.platform === 'win32' ? actual.executable.toLowerCase() === expected.executable.toLowerCase() : actual.executable === expected.executable) &&
+    !!actual.commandLine && actual.commandLine === expected.commandLine && directoryMatches;
 }
 
 export async function running(root: string): Promise<RunningClient | null> {
@@ -52,6 +82,21 @@ function validControlPort(port: number): boolean {
 }
 
 export async function stopClient(record: RunningClient): Promise<void> {
+  if (process.platform === 'linux') {
+    const signal = async (value: NodeJS.Signals) => {
+      if (matchesProcess(await identity(record.identity.pid), record.identity, record.instance)) {
+        try { process.kill(record.identity.pid, value); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+      }
+    };
+    await signal('SIGTERM');
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (!matchesProcess(await identity(record.identity.pid), record.identity, record.instance)) return;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    await signal('SIGKILL');
+    return;
+  }
   // Keep the PowerShell command short even when Minecraft has a long Java classpath.
   const data = Buffer.from(JSON.stringify({ identity: {
     pid: record.identity.pid, started: record.identity.started, executable: record.identity.executable,

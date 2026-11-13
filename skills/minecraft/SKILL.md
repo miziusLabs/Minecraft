@@ -34,8 +34,29 @@ Use the `minecraft` command line tool to start and control the managed Minecraft
 
 The CLI runs an offline profile and does not sign in to a Microsoft account. Servers and Realms that require authenticated online accounts reject this profile. Authentication errors in client logs are expected for those services.
 
-The managed client runs on Windows x64. It stores data under `%LOCALAPPDATA%\mizius\Minecraft` by default. Set `mizius_minecraft_home` to use another managed directory.
+The managed client runs on Windows or Linux x64. On Windows, it stores data under `%LOCALAPPDATA%\mizius\Minecraft` by default. Set `mizius_minecraft_home` to use another managed directory.
 
 The default window is 1280 by 720 with GUI scale 2 and FOV 90. Sprint uses R. The client mutes master volume and does not pause on focus loss. New instances use the Custom graphics preset, 8 chunk render distance, 5 chunk simulation distance, and a 60 FPS cap. Existing instance settings remain unchanged.
 
 Run `minecraft --help` for all commands. The command port defaults to 8765. Use `--port` to select another free port. The CLI reserves port 18765 while it installs, starts, or stops a client.
+
+## Linux setup
+
+On Linux, managed data defaults to `$XDG_DATA_HOME/mizius/Minecraft`, or
+`~/.local/share/mizius/Minecraft` when `XDG_DATA_HOME` is unset. The
+`mizius_minecraft_home` override works on both platforms. Linux requires glibc,
+an X11 or Wayland display, OpenGL drivers, and the usual LWJGL desktop libraries.
+On Ubuntu 24.04, install the desktop dependencies with
+`apt-get install libgl1-mesa-dri libglx-mesa0 libxrandr2 libxcursor1 libxi6 libxinerama1 libasound2t64`.
+Java downloads automatically. For a headless session, install `xvfb` and keep
+its display server running for the lifetime of the client.
+
+```sh
+Xvfb :99 -screen 0 1280x720x24 -nolisten tcp > /tmp/minecraft-xvfb.log 2>&1 &
+export DISPLAY=:99
+export LIBGL_ALWAYS_SOFTWARE=1
+minecraft launch --json
+minecraft control state --json
+```
+
+This uses Mesa software rendering rather than a physical GPU.

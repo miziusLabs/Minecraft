@@ -3,6 +3,7 @@ import { lstat, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { arch, platform, release } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import AdmZip from 'adm-zip';
+import { x as extractTar } from 'tar';
 import { atomicWrite, download, fetchJson, parallel, readJson, type Download } from './download.js';
 
 interface Rule {
@@ -92,7 +93,7 @@ export function allowed(rules?: Rule[]): boolean {
   let result = false;
   for (const rule of rules) {
     const os = rule.os;
-    if (os?.name && os.name !== 'windows') continue;
+    if (os?.name && os.name !== (platform() === 'win32' ? 'windows' : platform())) continue;
     if (os?.arch && !['x86_64', 'amd64', 'x64'].includes(os.arch)) continue;
     if (os?.version && !new RegExp(os.version).test(release())) continue;
     if (os?.versionRange?.min && compareVersion(release(), os.versionRange.min) < 0) continue;
@@ -189,6 +190,33 @@ export async function publishRuntime(root: string, major: number, temporary: str
   if (replaced) await rm(quarantine, { recursive: true, force: true });
 }
 
+export async function extractJavaTar(archive: string, destination: string): Promise<string | undefined> {
+  let executable: string | undefined;
+  let validationError: unknown;
+  await extractTar({
+    file: archive, cwd: destination, strict: true, preserveOwner: false,
+    filter(name, entry) {
+      if (validationError) return false;
+      try {
+        safePath(destination, name);
+        if (!('type' in entry)) return false;
+        if (entry.type === 'SymbolicLink' || entry.type === 'Link') {
+          if (!entry.linkpath) throw new Error('Java archive contains an empty link');
+          safePath(destination, entry.type === 'Link' ? entry.linkpath : join(dirname(name), entry.linkpath));
+        }
+        if (/^[^/]+\/bin\/java$/.test(name) && entry.type === 'File') executable = name;
+        return true;
+      } catch (error) {
+        // tar's streaming filter does not turn thrown errors into promise rejections.
+        validationError = error;
+        return false;
+      }
+    },
+  });
+  if (validationError) throw validationError;
+  return executable;
+}
+
 async function installJava(root: string, major: number, progress: (message: string) => void): Promise<string> {
   if (!Number.isSafeInteger(major) || major < 8) throw new Error(`Invalid Java major version ${major}`);
   const runtime = join(root, 'runtime', `java-${major}`);
@@ -196,25 +224,31 @@ async function installJava(root: string, major: number, progress: (message: stri
   try {
     const installed = await readJson<{ executable: string }>(marker);
     if (!installed || typeof installed.executable !== 'string') throw new SyntaxError('Invalid Java installation marker');
-    const java = safePath(runtime, installed.executable.replace(/(^|[\\/])java\.exe$/i, '$1javaw.exe'));
+    const java = safePath(runtime, platform() === 'win32' ? installed.executable.replace(/(^|[\\/])java\.exe$/i, '$1javaw.exe') : installed.executable);
     if ((await stat(java)).isFile()) return java;
   } catch (error) {
     if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
   progress(`Installing Java ${major}`);
   const assets = await fetchJson<Array<{ binary: { package: { link: string; checksum: string; size: number; name: string } } }>>(
-    `https://api.adoptium.net/v3/assets/latest/${major}/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse`);
+    `https://api.adoptium.net/v3/assets/latest/${major}/hotspot?architecture=x64&image_type=jre&os=${platform() === 'win32' ? 'windows' : 'linux'}&vendor=eclipse`);
   const asset = assets[0]?.binary.package;
-  if (!asset || !asset.name.endsWith('.zip')) throw new Error(`No Windows x64 Java ${major} runtime is available`);
-  const archive = join(root, 'cache', `${asset.checksum}.zip`);
+  const windows = platform() === 'win32';
+  const extension = windows ? '.zip' : '.tar.gz';
+  if (!asset || !asset.name.endsWith(extension)) throw new Error(`No ${platform()} x64 Java ${major} runtime is available`);
+  const archive = join(root, 'cache', `${asset.checksum}${extension}`);
   await download(archive, { url: asset.link, sha256: asset.checksum, size: asset.size });
   const temporary = `${runtime}.${randomUUID()}.tmp`;
   await mkdir(temporary, { recursive: true });
   try {
-    await extractZip(archive, temporary);
-    const entries = new AdmZip(archive).getEntries();
-    const executable = entries.find(entry => /^[^/]+\/bin\/javaw\.exe$/.test(entry.entryName))?.entryName;
-    if (!executable) throw new Error('Java runtime archive does not contain bin/javaw.exe');
+    let executable: string | undefined;
+    if (windows) {
+      await extractZip(archive, temporary);
+      executable = new AdmZip(archive).getEntries().find(entry => /^[^/]+\/bin\/javaw\.exe$/.test(entry.entryName))?.entryName;
+    } else {
+      executable = await extractJavaTar(archive, temporary);
+    }
+    if (!executable) throw new Error('Java runtime archive does not contain a Java executable');
     await atomicWrite(join(temporary, 'installed.json'), JSON.stringify({ executable, checksum: asset.checksum }));
     await publishRuntime(root, major, temporary);
     return safePath(runtime, executable);
@@ -224,7 +258,7 @@ async function installJava(root: string, major: number, progress: (message: stri
 }
 
 export async function install(root: string, version: string, compatibility: { loader: string; java: number }, progress: (message: string) => void): Promise<Installation> {
-  if (platform() !== 'win32' || arch() !== 'x64') throw new Error('Managed Minecraft currently requires Windows x64');
+  if (!['win32', 'linux'].includes(platform()) || arch() !== 'x64') throw new Error('Managed Minecraft currently requires Windows or Linux x64');
   if (!/^[a-zA-Z0-9._+-]+$/.test(version) || !/^[a-zA-Z0-9._+-]+$/.test(compatibility.loader)) {
     throw new Error('Invalid Minecraft or Fabric version');
   }
@@ -272,7 +306,7 @@ export async function install(root: string, version: string, compatibility: { lo
       await download(path, artifact);
       classpath[index] = path;
     }
-    const classifier = library.natives?.windows?.replace('${arch}', '64');
+    const classifier = library.natives?.[platform() === 'win32' ? 'windows' : 'linux']?.replace('${arch}', '64');
     if (classifier) {
       const artifact = library.downloads?.classifiers?.[classifier];
       if (!artifact) throw new Error(`Missing native library ${library.name} ${classifier}`);
@@ -306,8 +340,8 @@ export async function install(root: string, version: string, compatibility: { lo
   const variables: Record<string, string> = {
     version_name: fabric.id, version_type: vanilla.type, game_directory: instance,
     assets_root: assets, assets_index_name: vanilla.assetIndex.id, natives_directory: natives,
-    launcher_name: 'minecraft-cli', launcher_version: '1.0', classpath: classpath.filter(Boolean).join(';'),
-    classpath_separator: ';', library_directory: libraries, auth_access_token: '0',
+    launcher_name: 'minecraft-cli', launcher_version: '1.0', classpath: classpath.filter(Boolean).join(platform() === 'win32' ? ';' : ':'),
+    classpath_separator: platform() === 'win32' ? ';' : ':', library_directory: libraries, auth_access_token: '0',
     auth_xuid: '', clientid: '', user_type: 'legacy', user_properties: '{}',
   };
   return {

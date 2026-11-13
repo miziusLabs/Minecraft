@@ -1,10 +1,10 @@
 # @mizius/minecraft
 
-`@mizius/minecraft` is a Windows x64 command line tool for launching and controlling an isolated Minecraft Java client. It installs Minecraft, Fabric Loader, Java, and the bundled control mod into a managed directory. The CLI sends commands to the running game over loopback.
+`@mizius/minecraft` is a Windows or Linux x64 command line tool for launching and controlling an isolated Minecraft Java client. It installs Minecraft, Fabric Loader, Java, and the bundled control mod into a managed directory. The CLI sends commands to the running game over loopback.
 
 ## Requirements
 
-- Windows x64.
+- Windows or Linux x64.
 - Node.js 22 or newer.
 - A network connection on first launch to download Minecraft, Fabric Loader, Java, libraries, and assets.
 
@@ -134,3 +134,24 @@ Commit `project.properties`, `package.json`, and `package-lock.json`, then merge
 When a release is needed, the workflow runs the Windows CLI tests, packages the CLI, and checks installation. Packaging builds the mod JAR that the CLI bundles. After checks pass, it creates the tag `v<version>` at the tested commit and attaches the tested `minecraft.tgz` archive without rebuilding it. Release notes list merged pull request titles under `## Changes`. When GitHub has no merged pull request notes, they list commit subjects since the previous release tag. They omit contributor names and URLs. Existing release tags must not be reused.
 
 Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. The public repository lets users download release assets without authentication.
+
+## Linux setup
+
+On Linux, managed data defaults to `$XDG_DATA_HOME/mizius/Minecraft`, or
+`~/.local/share/mizius/Minecraft` when `XDG_DATA_HOME` is unset. The
+`mizius_minecraft_home` override works on both platforms. Linux requires glibc,
+an X11 or Wayland display, OpenGL drivers, and the usual LWJGL desktop libraries.
+On Ubuntu 24.04, install the desktop dependencies with
+`apt-get install libgl1-mesa-dri libglx-mesa0 libxrandr2 libxcursor1 libxi6 libxinerama1 libasound2t64`.
+Java downloads automatically. For a headless session, install `xvfb` and keep
+its display server running for the lifetime of the client.
+
+```sh
+Xvfb :99 -screen 0 1280x720x24 -nolisten tcp > /tmp/minecraft-xvfb.log 2>&1 &
+export DISPLAY=:99
+export LIBGL_ALWAYS_SOFTWARE=1
+minecraft launch --json
+minecraft control state --json
+```
+
+This uses Mesa software rendering rather than a physical GPU.

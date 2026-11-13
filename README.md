@@ -12,7 +12,7 @@ Launch and control an isolated Minecraft Java client from the command line.
 
 ## Start and control a client
 
-Install Node.js 22 or newer on Windows x64. Download `minecraft.tgz` from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest), then install it from the download directory.
+Install Node.js 22 or newer on Windows or Linux x64. Download `minecraft.tgz` from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest), then install it from the download directory.
 
 ```powershell
 npm install --global ./minecraft.tgz
@@ -63,3 +63,10 @@ npm run build
 The `release.yml` workflow runs on pushes to `main` and can also run manually on `main`. It compares the stable version in `project.properties` with the latest GitHub release. If the version is newer, or no release exists, it builds and publishes a release tagged `v<version>` with the packaged `minecraft.tgz` attached. Otherwise it skips the build.
 
 See the [CLI release instructions](cli/README.md#publishing) for version updates and release permissions. Publishing and installing public releases do not require an npm account.
+
+
+## Linux
+
+Linux x64 clients use the XDG data directory and download their own Java runtime.
+See the [Linux setup instructions](cli/README.md#linux-setup) for desktop dependencies
+and a headless Xvfb example.

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import AdmZip from 'adm-zip';
-import { access, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { c as createTar } from 'tar';
+import { access, mkdtemp, mkdir, readFile, readdir, rm, writeFile, chmod, stat, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { extractZip, publishRuntime, safePath } from '../dist/install.js';
+import { extractZip, extractJavaTar, allowed, argumentsFor, publishRuntime, safePath } from '../dist/install.js';
 
 test('safePath rejects archive paths that escape the installation root', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mizius-archive-'));
@@ -84,4 +85,32 @@ test('publishRuntime restores the previous runtime if publication fails', async 
   await assert.rejects(publishRuntime(root, 25, missingTemporary), { code: 'ENOENT' });
   assert.equal(await readFile(path.join(runtime, 'installed.json'), 'utf8'), '{"executable":"java/bin/javaw.exe"}');
   assert.deepEqual(await readdir(runtimeRoot), ['java-25']);
+});
+
+test('library rules and conditional arguments select the current operating system', () => {
+  const name = process.platform === 'win32' ? 'windows' : process.platform;
+  assert.equal(allowed([{ action: 'allow', os: { name } }]), true);
+  assert.equal(allowed([{ action: 'allow', os: { name: name === 'linux' ? 'windows' : 'linux' } }]), false);
+  assert.equal(allowed([{ action: 'allow' }, { action: 'disallow', os: { name } }]), false);
+  assert.deepEqual(argumentsFor([{ rules: [{ action: 'allow', os: { name } }], value: ['-cp', '${classpath}'] }], { classpath: 'libraries' }), ['-cp', 'libraries']);
+});
+
+test('Linux Java extraction retains executable permissions and rejects escaping links', { skip: process.platform !== 'linux' }, async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'mizius-java-tar-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const source = path.join(root, 'source');
+  await mkdir(path.join(source, 'jre', 'bin'), { recursive: true });
+  await writeFile(path.join(source, 'jre', 'bin', 'java'), '#!/bin/sh\nexit 0\n');
+  await chmod(path.join(source, 'jre', 'bin', 'java'), 0o755);
+  const archive = path.join(root, 'java.tar.gz');
+  await createTar({ gzip: true, file: archive, cwd: source }, ['jre']);
+  const target = path.join(root, 'target');
+  await mkdir(target);
+  assert.equal(await extractJavaTar(archive, target), 'jre/bin/java');
+  assert.ok((await stat(path.join(target, 'jre', 'bin', 'java'))).mode & 0o111);
+  await symlink('../../../outside', path.join(source, 'jre', 'escape'));
+  await createTar({ gzip: true, file: archive, cwd: source }, ['jre']);
+  const unsafeTarget = path.join(root, 'unsafe');
+  await mkdir(unsafeTarget);
+  await assert.rejects(extractJavaTar(archive, unsafeTarget), /Unsafe archive path/);
 });

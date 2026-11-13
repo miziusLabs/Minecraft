@@ -28,7 +28,7 @@ test('CLI prints help and lists bundled versions as JSON without launching a cli
 });
 
 test('CLI explains that self-update requires the documented global npm installation', async (t) => {
-  if (process.platform !== 'win32' || process.arch !== 'x64') {
+  if (!['win32', 'linux'].includes(process.platform) || process.arch !== 'x64') {
     t.skip('The managed CLI currently supports Windows x64 only.');
     return;
   }
@@ -62,7 +62,7 @@ test('CLI skill install replaces an existing skill with the packaged version', a
 });
 
 test('CLI rejects the reserved mutex port before creating a managed root', async (t) => {
-  if (process.platform !== 'win32' || process.arch !== 'x64') {
+  if (!['win32', 'linux'].includes(process.platform) || process.arch !== 'x64') {
     t.skip('Managed launch is available only on Windows x64.');
     return;
   }
