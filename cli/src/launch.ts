@@ -47,7 +47,7 @@ export async function requireFreePort(port = 8765): Promise<void> {
 }
 
 export function validateControlPort(port: number): void {
-  if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 18765) {
+  if (!Number.isInteger(port) || port < 1024 || port > 65535 || [18765, 18766].includes(port)) {
     throw new Error('Port must be an integer from 1024 to 65535, excluding mutex port 18765.');
   }
 }

@@ -78,13 +78,13 @@ export async function stopClient(record: RunningClient): Promise<void> {
   `);
 }
 
-export async function acquireLock(root: string): Promise<() => Promise<void>> {
+export async function acquireLock(root: string, port = 18765): Promise<() => Promise<void>> {
   await mkdir(root, { recursive: true });
   // The OS releases this mutex on crashes. It also serializes different managed roots.
   const socket = createServer();
   await new Promise<void>((resolve, reject) => {
-    socket.once('error', () => reject(new Error('Another CLI operation is running, or mutex port 18765 is occupied.')));
-    socket.listen({ host: '127.0.0.1', port: 18765, exclusive: true }, resolve);
+    socket.once('error', () => reject(new Error(`Another CLI operation is running, or mutex port ${port} is occupied.`)));
+    socket.listen({ host: '127.0.0.1', port, exclusive: true }, resolve);
   });
   return () => new Promise<void>((resolve, reject) => socket.close(error => error ? reject(error) : resolve()));
 }
