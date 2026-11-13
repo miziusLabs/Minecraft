@@ -45,18 +45,20 @@ Run `minecraft --help` for all commands. The command port defaults to 8765. Use 
 On Linux, managed data defaults to `$XDG_DATA_HOME/mizius/Minecraft`, or
 `~/.local/share/mizius/Minecraft` when `XDG_DATA_HOME` is unset. The
 `mizius_minecraft_home` override works on both platforms. Linux requires glibc,
-an X11 or Wayland display, OpenGL drivers, and the usual LWJGL desktop libraries.
+an X11 or Wayland display, OpenGL or Vulkan drivers, and the LWJGL desktop libraries.
 On Ubuntu 24.04, install the desktop dependencies with
-`apt-get install libgl1-mesa-dri libglx-mesa0 libxrandr2 libxcursor1 libxi6 libxinerama1 libasound2t64`.
+`apt-get install libgl1-mesa-dri libglx-mesa0 libxrandr2 libxcursor1 libxi6 libxinerama1 libasound2t64 libegl1 libopengl0 libvulkan1 mesa-vulkan-drivers`.
 Java downloads automatically. For a headless session, install `xvfb` and keep
 its display server running for the lifetime of the client.
 
 ```sh
-Xvfb :99 -screen 0 1280x720x24 -nolisten tcp > /tmp/minecraft-xvfb.log 2>&1 &
+Xvfb :99 -screen 0 1280x720x24 -nolisten tcp -noreset > /tmp/minecraft-xvfb.log 2>&1 &
 export DISPLAY=:99
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-$(mktemp -d)}"
 export LIBGL_ALWAYS_SOFTWARE=1
 minecraft launch --json
 minecraft control state --json
 ```
 
-This uses Mesa software rendering rather than a physical GPU.
+This uses Mesa software rendering rather than a physical GPU. Minecraft 26.3
+can use software Vulkan when the virtual display cannot provide its OpenGL context.
