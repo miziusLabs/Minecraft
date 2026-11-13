@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { readManifest } from './core.js';
+import { managedRoot } from './paths.js';
+import { launchHost, remoteCommand, sshProxy } from './host.js';
+import { launchServer, serverDirectory, serverRequest, stopServer } from './server.js';
 import { command as controlCommand, controlReady, controlUrl, launch, stop, validateControlPort } from './launch.js';
 import { acquireLock, running } from './process.js';
 import type { RunningClient } from './process.js';
@@ -17,6 +20,11 @@ function describe(record: RunningClient) {
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const help = `Minecraft command line
 
+  minecraft host launch [--ssh-port 22] [--local]
+  minecraft host proxy
+  minecraft server launch --version <version> [--no-reset] [--accept-eula] [--software vanilla|paper] [--port 25565]
+  minecraft server status|stop|restart --version <version>
+  minecraft server command <command> --version <version>
   minecraft versions [--json]
   minecraft update [--json]
   minecraft launch [version] [--username Agent] [--port 8765] [--foreground] [--json]
@@ -40,6 +48,8 @@ const help = `Minecraft command line
   minecraft skill install --dir <skills-directory>
 
 The managed client requires Windows x64. The command endpoint runs inside the game client.
+Set TUNNEL to the full URL printed by host launch to run commands on another device.
+Use SSH with -o ProxyCommand="minecraft host proxy" for shell, SCP, SFTP, and forwarding.
 Use mizius_minecraft_home to select a different managed directory.
 `;
 
@@ -59,12 +69,6 @@ function requireClientPlatform(): void {
   if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('Managed Minecraft currently requires Windows x64.');
 }
 
-function managedRoot(): string {
-  const base = process.env.mizius_minecraft_home ?? (process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'mizius', 'Minecraft'));
-  if (!base) throw new Error('LOCALAPPDATA is unavailable. Set mizius_minecraft_home to a managed directory.');
-  return path.resolve(base);
-}
-
 async function sendCommand(root: string, name: string, args: Record<string, unknown> = {}) {
   requireClientPlatform();
   const record = await running(root);
@@ -80,10 +84,45 @@ async function main(): Promise<void> {
     json: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
     username: { type: 'string' }, dir: { type: 'string' }, port: { type: 'string' }, foreground: { type: 'boolean' },
     output: { type: 'string' }, button: { type: 'string' }, action: { type: 'string' },
+    software: { type: 'string' }, version: { type: 'string' }, 'no-reset': { type: 'boolean' }, reset: { type: 'boolean' },
+    'accept-eula': { type: 'boolean' }, 'ssh-port': { type: 'string' }, local: { type: 'boolean' },
     'duration-ms': { type: 'string' }, limit: { type: 'string' }, fps: { type: 'string' },
   } });
   if (values.help || positionals.length === 0) { console.log(help); return; }
   const [topLevel, second, ...remaining] = positionals;
+  if (topLevel === 'host') {
+    if (positionals.length !== 2) throw new Error('Use minecraft host launch or minecraft host proxy.');
+    if (second === 'launch') { await launchHost(values['ssh-port'] === undefined ? 22 : integer(values['ssh-port'], 'SSH port'), values.local); return; }
+    if (second === 'proxy') {
+      if (!process.env.TUNNEL) throw new Error('Set TUNNEL to the full URL printed by minecraft host launch.');
+      await sshProxy(process.env.TUNNEL); return;
+    }
+    throw new Error('Use minecraft host launch or minecraft host proxy.');
+  }
+  if (process.env.TUNNEL && topLevel !== 'skill' && topLevel !== 'update') {
+    process.exitCode = await remoteCommand(process.env.TUNNEL, process.argv.slice(2)); return;
+  }
+  if (topLevel === 'server') {
+    if (!values.version) throw new Error('Specify --version for the Minecraft server.');
+    if (values.reset && values['no-reset']) throw new Error('Use either --reset or --no-reset.');
+    if (values.software !== undefined && !['vanilla', 'paper'].includes(values.software)) throw new Error('Server software must be vanilla or paper.');
+    const root = managedRoot();
+    const directory = serverDirectory(root, values.version);
+    let result: unknown;
+    if ((second === 'launch' || second === 'restart') && !remaining.length) {
+      result = await launchServer(root, {
+        version: values.version, reset: values.reset ?? false, acceptEula: values['accept-eula'] ?? false,
+        ...(values.port === undefined ? {} : { port: integer(values.port, 'Server port') }),
+        ...(values.software === undefined ? {} : { software: values.software as 'vanilla' | 'paper' }),
+      }, second === 'restart');
+    } else if (second === 'status' && !remaining.length) result = await serverRequest(directory, 'status');
+    else if (second === 'stop' && !remaining.length) result = await stopServer(root, values.version);
+    else if (second === 'command' && remaining.length) {
+      result = await serverRequest(directory, 'command', remaining.join(' '));
+      if (!(result as { sent?: boolean }).sent) throw new Error('The server is not running.');
+    } else throw new Error('Use minecraft server launch, status, stop, restart, or command with --version.');
+    console.log(JSON.stringify(result, null, values.json ? undefined : 2)); return;
+  }
   const isControl = topLevel === 'control';
   const commandName = isControl ? second : topLevel;
   const argument = isControl ? remaining[0] : second;
