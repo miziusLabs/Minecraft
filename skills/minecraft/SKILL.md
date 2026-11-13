@@ -30,6 +30,19 @@ Use the `minecraft` command line tool to start and control the managed Minecraft
 - After joining a server, opening a menu, or changing screens, inspect state with `minecraft control state` before sending more input.
 - If the client stops responding, inspect its state and screenshot. Restore a minimized window and close blocking screens before retrying.
 
+## Remote hosts and servers
+
+- Linux controllers can use every client control command without running Minecraft locally. Set `TUNNEL` to the full URL, including the secret fragment, printed by `minecraft host launch` on the host. Do not log or publish that URL.
+- The host needs cloudflared on `PATH`. Client launches still require Windows x64 on the host. Without `TUNNEL`, commands run locally.
+- Client and server processes run on the host and survive controller disconnects. Screenshots save on the controller; recordings stay on the host.
+- Use `minecraft server launch --version <version> --no-reset` to preserve server files. Read the Minecraft EULA and obtain acceptance before using `--accept-eula`. Install the required Java on the host.
+- Paper is the default. Use `--version Paper/26.2`, `Folia/1.21.11`, or `Vanilla/1.21.4` to select software explicitly. The CLI isolates each software/version pair and pins Paper/Folia builds on restarts. Folia needs compatible plugins.
+- Use `server status`, `server restart`, `server stop`, and `server command '<console command>'` with `--version`. A live process may not be ready for gameplay yet. Inspect `status.ready` and the server log.
+- Each server version has its own folder. Preservation is the default; never pass `--reset` unless the user asks to delete that version's files. Different running servers need different gameplay ports.
+- Use `ssh -o 'ProxyCommand=minecraft host proxy' user@minecraft-host` for shell access. SCP and SFTP take the same proxy option. The host must already run OpenSSH and authorize the connecting user. Keep SSH host-key checks enabled.
+- Upload plugins into the Paper server's `plugins` folder, then restart that version. Host launch and status output report server file locations. A `localhost` server address in a control command refers to the Minecraft host.
+- Closing the host tunnel does not stop Minecraft. Stop clients or servers explicitly before closing it if the user wants them shut down.
+
 ## Limits
 
 The CLI runs an offline profile and does not sign in to a Microsoft account. Servers and Realms that require authenticated online accounts reject this profile. Authentication errors in client logs are expected for those services.
