@@ -12,10 +12,10 @@ The CLI starts an offline profile. It does not sign in to a Microsoft account. M
 
 ## Install
 
-Download `minecraft.tgz` from the [latest GitHub release](https://github.com/miziusLabs/Minecraft/releases/latest). Open a terminal in the download directory and install the package globally with npm.
+Install the public npm package globally.
 
 ```powershell
-npm install --global ./minecraft.tgz
+npm install --global @mizius/minecraft
 ```
 
 Run `minecraft update` to install the latest stable CLI release now. The CLI also installs new releases automatically before starting a new Minecraft client, then resumes the launch command. Automatic update failures leave the installed CLI in place and do not block a launch. No npm account or GitHub token is required for a public GitHub release.
@@ -157,3 +157,20 @@ minecraft control state --json
 
 This uses Mesa software rendering rather than a physical GPU. Minecraft 26.3
 can use software Vulkan when the virtual display cannot provide its OpenGL context.
+
+
+### npm release setup
+
+The final job in `.github/workflows/release.yml` downloads the tested archive from the new GitHub release and publishes it as `@mizius/minecraft` with the `latest` tag and npm provenance. It uses GitHub OIDC trusted publishing on a GitHub-hosted Ubuntu runner. Node 24 supplies a compatible npm version, at least npm 11.5.1 is required. No npm token, GitHub secret, repository variable, or GitHub environment is required.
+
+Before the first automated publish, complete these account settings.
+
+1. Create or obtain publishing access to the `mizius` organization on npm. GitHub organization membership does not grant npm access.
+2. If the package does not exist yet, download `minecraft.tgz` from the desired GitHub release. With Node 24 installed, run `npm login`, then `npm publish ./minecraft.tgz --access public` locally. Complete npm's authentication prompts. This creates the package without putting a publishing token in GitHub.
+3. In the npm package settings for `@mizius/minecraft`, add a GitHub Actions trusted publisher. Set the organization to `miziusLabs`, repository to `Minecraft`, and workflow filename to `release.yml`. Leave the environment name empty because this workflow does not use a GitHub environment. Enable **Allow npm publish**, and leave **Allow npm dist-tag** disabled. Complete the first trusted publish within npm's required setup window, currently two days.
+4. After trusted publishing is configured, use the npm publishing access option that requires two-factor authentication and disallows tokens. Trusted publishing still works with this option.
+5. In GitHub, allow Actions and the actions used by this repository. Repository or organization policies must permit the workflow's explicit `contents: write` permission for GitHub releases and `id-token: write` permission for npm authentication. Tag rules must allow the workflow to create `v*` tags. The default workflow token permission can remain read-only because jobs request their required permissions explicitly.
+
+For each release, increase the stable version in `project.properties` and push it to `main`, or manually run Release on `main` after the version change is present. The existing version gate skips building unchanged versions and prereleases. The npm job also runs when the GitHub release already exists, so missing npm publication can recover without rebuilding. npm versions are immutable, so never reuse a version for different contents.
+
+If the npm job fails after GitHub created the release, fix the account settings and use GitHub's **Re-run failed jobs**. A fresh workflow run on the same version can also recover npm publication using the existing release archive. The npm job skips an already published version only when its archive integrity matches the GitHub release asset, and fails if the contents differ. The first locally published archive also passes this check when it is the identical release asset.
