@@ -156,3 +156,46 @@ jobs:
           Set-Content -LiteralPath $notesPath -Value $releaseNotes -Encoding utf8
           gh release create "v$env:RELEASE_VERSION" $package[0].FullName --target $env:RELEASE_COMMIT --title "Minecraft v$env:RELEASE_VERSION" --notes-file $notesPath --latest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  npm:
+    name: Publish to npm
+    needs: [version, release]
+    if: always() && needs.version.result == 'success' && (needs.release.result == 'success' || needs.release.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Download the tested GitHub release package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: gh release download "v$RELEASE_VERSION" --pattern minecraft.tgz
+      - name: Check whether this version is already published
+        id: registry
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          node --input-type=module <<'JS'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          const response = await fetch(`https://registry.npmjs.org/@mizius%2Fminecraft/${process.env.RELEASE_VERSION}`);
+          if (response.status === 404) {
+            appendFileSync(process.env.GITHUB_OUTPUT, 'published=false\n');
+          } else {
+            if (!response.ok) throw new Error(`npm registry returned ${response.status}`);
+            const metadata = await response.json();
+            const integrity = 'sha512-' + createHash('sha512').update(readFileSync('minecraft.tgz')).digest('base64');
+            if (metadata.dist?.integrity !== integrity) throw new Error('This npm version already contains a different package. Publish a new version.');
+            appendFileSync(process.env.GITHUB_OUTPUT, 'published=true\n');
+          }
+          JS
+      - name: Publish the tested package with npm trusted publishing
+        if: steps.registry.outputs.published != 'true'
+        run: npm publish ./minecraft.tgz --access public --provenance --tag latest
