@@ -12,7 +12,7 @@ Launch and control an isolated Minecraft Java client from the command line.
 
 ## Start and control a client
 
-Install Node.js 22 or newer on Windows or Linux x64. Install the public npm package.
+Install Node.js 22 or newer on Windows, Linux x64, or macOS. Install the public npm package.
 
 ```powershell
 npm install --global @mizius/minecraft
@@ -64,6 +64,11 @@ The `release.yml` workflow runs on pushes to `main` and can also run manually on
 
 See the [CLI release instructions](cli/README.md#publishing) for version updates and release permissions. Publishing and installing public releases do not require an npm account.
 
+
+## macOS
+
+macOS clients work on Apple Silicon and Intel. Managed data lives under
+`~/Library/Application Support/mizius/Minecraft` and Java downloads automatically.
 
 ## Linux
 

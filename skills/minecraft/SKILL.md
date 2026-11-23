@@ -34,7 +34,7 @@ Use the `minecraft` command line tool to start and control the managed Minecraft
 
 The CLI runs an offline profile and does not sign in to a Microsoft account. Servers and Realms that require authenticated online accounts reject this profile. Authentication errors in client logs are expected for those services.
 
-The managed client runs on Windows or Linux x64. On Windows, it stores data under `%LOCALAPPDATA%\mizius\Minecraft` by default. Set `mizius_minecraft_home` to use another managed directory.
+The managed client runs on Windows, Linux x64, or macOS. On Windows, it stores data under `%LOCALAPPDATA%\mizius\Minecraft` by default, and on macOS under `~/Library/Application Support/mizius/Minecraft`. Set `mizius_minecraft_home` to use another managed directory.
 
 The default window is 1280 by 720 with GUI scale 2 and FOV 90. Sprint uses R. The client mutes master volume and does not pause on focus loss. New instances use the Custom graphics preset, 4 chunk render distance, 2 chunk simulation distance, and a 60 FPS cap. Existing instance settings remain unchanged.
 
@@ -44,7 +44,7 @@ Run `minecraft --help` for all commands. The command port defaults to 8765. Use 
 
 On Linux, managed data defaults to `$XDG_DATA_HOME/mizius/Minecraft`, or
 `~/.local/share/mizius/Minecraft` when `XDG_DATA_HOME` is unset. The
-`mizius_minecraft_home` override works on both platforms. Linux requires glibc,
+`mizius_minecraft_home` override works on all platforms. Linux requires glibc,
 an X11 or Wayland display, OpenGL or Vulkan drivers, and the LWJGL desktop libraries.
 On Ubuntu 24.04, install the desktop dependencies with
 `apt-get install libgl1-mesa-dri libglx-mesa0 libxrandr2 libxcursor1 libxi6 libxinerama1 libasound2t64 libegl1 libopengl0 libvulkan1 mesa-vulkan-drivers`.

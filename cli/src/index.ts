@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util';
 import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { readManifest } from './core.js';
 import { command as controlCommand, controlReady, controlUrl, launch, stop, validateControlPort } from './launch.js';
+import { clientPlatformSupported } from './install.js';
 import { acquireLock, running } from './process.js';
 import type { RunningClient } from './process.js';
 import { attemptAutomaticUpdate, relaunchCli, updateCli } from './update.js';
@@ -39,7 +40,7 @@ const help = `Minecraft command line
   minecraft skill path
   minecraft skill install --dir <skills-directory>
 
-The managed client requires Windows or Linux x64. The command endpoint runs inside the game client.
+The managed client requires Windows or Linux x64, or macOS. The command endpoint runs inside the game client.
 Use mizius_minecraft_home to select a different managed directory.
 `;
 
@@ -56,13 +57,15 @@ function coordinate(value: string | undefined, label: string): number {
 }
 
 function requireClientPlatform(): void {
-  if (!['win32', 'linux'].includes(process.platform) || process.arch !== 'x64') throw new Error('Managed Minecraft currently requires Windows or Linux x64.');
+  if (!clientPlatformSupported()) throw new Error('Managed Minecraft currently requires Windows or Linux x64, or macOS.');
 }
 
 function managedRoot(): string {
   const base = process.env.mizius_minecraft_home ?? (process.platform === 'linux'
     ? path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'mizius', 'Minecraft')
-    : process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'mizius', 'Minecraft'));
+    : process.platform === 'darwin'
+      ? path.join(os.homedir(), 'Library', 'Application Support', 'mizius', 'Minecraft')
+      : process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'mizius', 'Minecraft'));
   if (!base) throw new Error('LOCALAPPDATA is unavailable. Set mizius_minecraft_home to a managed directory.');
   return path.resolve(base);
 }

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { lstat, mkdir, rename, rm, stat } from 'node:fs/promises';
+import { lstat, mkdir, realpath, rename, rm, stat } from 'node:fs/promises';
 import { arch, platform, release } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import AdmZip from 'adm-zip';
@@ -57,21 +57,23 @@ export function safePath(root: string, name: string): string {
 
 export async function extractZip(archive: string, destination: string, exclusions: string[] = []): Promise<void> {
   const zip = new AdmZip(archive);
+  // Resolve the destination first so symlinked system ancestors like /var on macOS
+  // do not fail the check. Only entries created inside the destination are inspected.
+  let root: string;
+  try { root = await realpath(destination); } catch { root = resolve(destination); }
   for (const entry of zip.getEntries()) {
-    const path = safePath(destination, entry.entryName);
+    const path = safePath(root, entry.entryName);
     // ZIP symlinks can otherwise turn a later entry into a write outside the destination.
     if (((entry.header.attr >>> 16) & 0xf000) === 0xa000) throw new Error(`Archive contains a symbolic link ${entry.entryName}`);
     if (exclusions.some(prefix => entry.entryName.startsWith(prefix))) continue;
     let ancestor = path;
-    while (true) {
+    while (ancestor !== root) {
       try {
         if ((await lstat(ancestor)).isSymbolicLink()) throw new Error(`Archive destination contains a symbolic link ${ancestor}`);
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
-      const parent = dirname(ancestor);
-      if (parent === ancestor) break;
-      ancestor = parent;
+      ancestor = dirname(ancestor);
     }
     if (entry.isDirectory) await mkdir(path, { recursive: true });
     else await atomicWrite(path, entry.getData());
@@ -88,13 +90,28 @@ function compareVersion(a: string, b: string): number {
   return 0;
 }
 
+function hostOs(): string {
+  return platform() === 'win32' ? 'windows' : platform() === 'darwin' ? 'osx' : platform();
+}
+
+// Mojang metadata names the x86 family x86_64, amd64, or x64 and ARM aarch64 or arm64.
+function hostArchAliases(): string[] {
+  return arch() === 'arm64' ? ['arm64', 'aarch64'] : ['x86_64', 'amd64', 'x64'];
+}
+
+export function clientPlatformSupported(): boolean {
+  return platform() === 'darwin'
+    ? ['x64', 'arm64'].includes(arch())
+    : ['win32', 'linux'].includes(platform()) && arch() === 'x64';
+}
+
 export function allowed(rules?: Rule[]): boolean {
   if (!rules) return true;
   let result = false;
   for (const rule of rules) {
     const os = rule.os;
-    if (os?.name && os.name !== (platform() === 'win32' ? 'windows' : platform())) continue;
-    if (os?.arch && !['x86_64', 'amd64', 'x64'].includes(os.arch)) continue;
+    if (os?.name && os.name !== hostOs()) continue;
+    if (os?.arch && !hostArchAliases().includes(os.arch)) continue;
     if (os?.version && !new RegExp(os.version).test(release())) continue;
     if (os?.versionRange?.min && compareVersion(release(), os.versionRange.min) < 0) continue;
     if (os?.versionRange?.max && compareVersion(release(), os.versionRange.max) > 0) continue;
@@ -204,7 +221,8 @@ export async function extractJavaTar(archive: string, destination: string): Prom
           if (!entry.linkpath) throw new Error('Java archive contains an empty link');
           safePath(destination, entry.type === 'Link' ? entry.linkpath : join(dirname(name), entry.linkpath));
         }
-        if (/^[^/]+\/bin\/java$/.test(name) && entry.type === 'File') executable = name;
+        // macOS runtimes nest the Java home under Contents/Home.
+        if (/^[^/]+\/(?:Contents\/Home\/)?bin\/java$/.test(name) && entry.type === 'File') executable = name;
         return true;
       } catch (error) {
         // tar's streaming filter does not turn thrown errors into promise rejections.
@@ -231,7 +249,7 @@ async function installJava(root: string, major: number, progress: (message: stri
   }
   progress(`Installing Java ${major}`);
   const assets = await fetchJson<Array<{ binary: { package: { link: string; checksum: string; size: number; name: string } } }>>(
-    `https://api.adoptium.net/v3/assets/latest/${major}/hotspot?architecture=x64&image_type=jre&os=${platform() === 'win32' ? 'windows' : 'linux'}&vendor=eclipse`);
+    `https://api.adoptium.net/v3/assets/latest/${major}/hotspot?architecture=${arch() === 'arm64' ? 'aarch64' : 'x64'}&image_type=jre&os=${platform() === 'win32' ? 'windows' : platform() === 'darwin' ? 'mac' : 'linux'}&vendor=eclipse`);
   const asset = assets[0]?.binary.package;
   const windows = platform() === 'win32';
   const extension = windows ? '.zip' : '.tar.gz';
@@ -258,7 +276,7 @@ async function installJava(root: string, major: number, progress: (message: stri
 }
 
 export async function install(root: string, version: string, compatibility: { loader: string; java: number }, progress: (message: string) => void): Promise<Installation> {
-  if (!['win32', 'linux'].includes(platform()) || arch() !== 'x64') throw new Error('Managed Minecraft currently requires Windows or Linux x64');
+  if (!clientPlatformSupported()) throw new Error('Managed Minecraft currently requires Windows or Linux x64, or macOS');
   if (!/^[a-zA-Z0-9._+-]+$/.test(version) || !/^[a-zA-Z0-9._+-]+$/.test(compatibility.loader)) {
     throw new Error('Invalid Minecraft or Fabric version');
   }
@@ -306,7 +324,7 @@ export async function install(root: string, version: string, compatibility: { lo
       await download(path, artifact);
       classpath[index] = path;
     }
-    const classifier = library.natives?.[platform() === 'win32' ? 'windows' : 'linux']?.replace('${arch}', '64');
+    const classifier = library.natives?.[hostOs()]?.replace('${arch}', arch() === 'arm64' ? 'arm64' : '64');
     if (classifier) {
       const artifact = library.downloads?.classifiers?.[classifier];
       if (!artifact) throw new Error(`Missing native library ${library.name} ${classifier}`);

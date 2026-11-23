@@ -87,8 +87,8 @@ test('the operating system releases the mutex after its owner process exits', as
 });
 
 test('stopClient checks the start time and handles long process command lines', async (t) => {
-  if (process.platform !== 'win32' || process.arch !== 'x64') {
-    t.skip('Managed process inspection is available only on Windows x64.');
+  if (!['win32', 'linux', 'darwin'].includes(process.platform) || process.arch !== 'x64' && process.arch !== 'arm64') {
+    t.skip('Managed process inspection requires a supported client platform.');
     return;
   }
   const root = await mkdtemp(path.join(os.tmpdir(), 'mizius-stop-'));
@@ -137,7 +137,7 @@ test('stopClient checks the start time and handles long process command lines', 
   } finally { if (timeout) clearTimeout(timeout); }
 });
 
-test('Linux process identity preserves argument boundaries and protects stale records', { skip: process.platform !== 'linux' }, async (t) => {
+test('POSIX process identity preserves argument boundaries and protects stale records', { skip: !['linux', 'darwin'].includes(process.platform) }, async (t) => {
   const instance = '/tmp/managed instance';
   const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)', '--', '--gameDir', instance]);
   t.after(() => { if (child.exitCode === null) child.kill('SIGKILL'); });

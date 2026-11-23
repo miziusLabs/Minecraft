@@ -45,6 +45,33 @@ export async function identity(pid: number): Promise<Identity | null> {
       throw error;
     }
   }
+  if (process.platform === 'darwin') {
+    // ps prints stat, a five-field lstart, then the executable path, which can contain spaces.
+    const processInfo = async () => {
+      const { stdout } = await exec('ps', ['-o', 'stat=', '-o', 'lstart=', '-o', 'comm=', '-p', String(pid)], {
+        windowsHide: true, timeout: 10000, maxBuffer: 1024 * 1024,
+      });
+      const fields = stdout.trim().split(/\s+/);
+      if (fields.length < 7) return null;
+      return { state: fields[0]!, started: fields.slice(1, 6).join(' '), executable: fields.slice(6).join(' ') };
+    };
+    try {
+      const before = await processInfo();
+      if (!before || before.state.includes('Z')) return null;
+      const { stdout } = await exec('ps', ['-ww', '-o', 'command=', '-p', String(pid)], {
+        windowsHide: true, timeout: 10000, maxBuffer: 16 * 1024 * 1024,
+      });
+      const commandLine = stdout.trim();
+      const after = await processInfo();
+      // The identity is invalid if the process exited and its identifier was reused between the reads.
+      if (!after || after.started !== before.started || after.executable !== before.executable || !commandLine) return null;
+      return { pid, started: before.started, executable: before.executable, commandLine };
+    } catch (error) {
+      // ps exits with a nonzero status when the process is gone.
+      if (typeof (error as { code?: unknown }).code === 'number') return null;
+      throw error;
+    }
+  }
   const json = await powershell(`$p=Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}'; if($p){ @{pid=[int]$p.ProcessId;started=$p.CreationDate.ToUniversalTime().ToString('o');executable=$p.ExecutablePath;commandLine=$p.CommandLine} | ConvertTo-Json -Compress }`);
   return json ? JSON.parse(json) as Identity : null;
 }
@@ -82,7 +109,7 @@ function validControlPort(port: number): boolean {
 }
 
 export async function stopClient(record: RunningClient): Promise<void> {
-  if (process.platform === 'linux') {
+  if (process.platform === 'linux' || process.platform === 'darwin') {
     const signal = async (value: NodeJS.Signals) => {
       if (matchesProcess(await identity(record.identity.pid), record.identity, record.instance)) {
         try { process.kill(record.identity.pid, value); }

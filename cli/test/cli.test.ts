@@ -10,6 +10,12 @@ import test from 'node:test';
 const execFileAsync = promisify(execFile);
 const cli = fileURLToPath(new URL('../dist/index.js', import.meta.url));
 
+function clientPlatformSupported(): boolean {
+  return process.platform === 'darwin'
+    ? ['x64', 'arm64'].includes(process.arch)
+    : ['win32', 'linux'].includes(process.platform) && process.arch === 'x64';
+}
+
 async function run(...args: string[]): Promise<{ stdout: string; stderr: string }> {
   return execFileAsync(process.execPath, [cli, ...args], { encoding: 'utf8' });
 }
@@ -28,8 +34,8 @@ test('CLI prints help and lists bundled versions as JSON without launching a cli
 });
 
 test('CLI explains that self-update requires the documented global npm installation', async (t) => {
-  if (!['win32', 'linux'].includes(process.platform) || process.arch !== 'x64') {
-    t.skip('The managed CLI currently supports Windows x64 only.');
+  if (!clientPlatformSupported()) {
+    t.skip('Self-update requires a supported client platform.');
     return;
   }
 
@@ -62,8 +68,8 @@ test('CLI skill install replaces an existing skill with the packaged version', a
 });
 
 test('CLI rejects the reserved mutex port before creating a managed root', async (t) => {
-  if (!['win32', 'linux'].includes(process.platform) || process.arch !== 'x64') {
-    t.skip('Managed launch is available only on Windows x64.');
+  if (!clientPlatformSupported()) {
+    t.skip('Managed launch requires a supported client platform.');
     return;
   }
   const root = await mkdtemp(path.join(os.tmpdir(), 'mizius-cli-'));

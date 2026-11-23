@@ -1,10 +1,10 @@
 # @mizius/minecraft
 
-`@mizius/minecraft` is a Windows or Linux x64 command line tool for launching and controlling an isolated Minecraft Java client. It installs Minecraft, Fabric Loader, Java, and the bundled control mod into a managed directory. The CLI sends commands to the running game over loopback.
+`@mizius/minecraft` is a Windows, Linux x64, or macOS command line tool for launching and controlling an isolated Minecraft Java client. It installs Minecraft, Fabric Loader, Java, and the bundled control mod into a managed directory. The CLI sends commands to the running game over loopback.
 
 ## Requirements
 
-- Windows or Linux x64.
+- Windows, Linux x64, or macOS.
 - Node.js 22 or newer.
 - A network connection on first launch to download Minecraft, Fabric Loader, Java, libraries, and assets.
 
@@ -87,7 +87,7 @@ Run `minecraft --help` for all commands and options. Agents call these commands 
 
 ## Managed files and settings
 
-On Windows, the CLI stores downloaded files, per-version instances, logs, and process state under `%LOCALAPPDATA%\mizius\Minecraft`. Set `mizius_minecraft_home` to use a different root. Each Minecraft version gets a separate instance directory.
+On Windows, the CLI stores downloaded files, per-version instances, logs, and process state under `%LOCALAPPDATA%\mizius\Minecraft`. On macOS it uses `~/Library/Application Support/mizius/Minecraft`. Set `mizius_minecraft_home` to use a different root. Each Minecraft version gets a separate instance directory.
 
 The CLI creates settings only when an instance has no `options.txt`. It opens a 1280 by 720 window with GUI scale 2 and FOV 90. Sprint uses R. Master volume is muted, and pause on focus loss is disabled. The CLI leaves existing `options.txt` files in place.
 
@@ -135,11 +135,17 @@ When a release is needed, the workflow runs the Windows CLI tests, packages the 
 
 Publishing uses the workflow's built-in `GITHUB_TOKEN` with `contents: write`. The repository must allow that permission and tag creation. The public repository lets users download release assets without authentication.
 
+## macOS setup
+
+macOS on Apple Silicon and Intel works without extra dependencies. Managed data
+defaults to `~/Library/Application Support/mizius/Minecraft`, and Java downloads
+automatically. The client window requires a logged-in desktop session.
+
 ## Linux setup
 
 On Linux, managed data defaults to `$XDG_DATA_HOME/mizius/Minecraft`, or
 `~/.local/share/mizius/Minecraft` when `XDG_DATA_HOME` is unset. The
-`mizius_minecraft_home` override works on both platforms. Linux requires glibc,
+`mizius_minecraft_home` override works on all platforms. Linux requires glibc,
 an X11 or Wayland display, OpenGL or Vulkan drivers, and the LWJGL desktop libraries.
 On Ubuntu 24.04, install the desktop dependencies with
 `apt-get install libgl1-mesa-dri libglx-mesa0 libxrandr2 libxcursor1 libxi6 libxinerama1 libasound2t64 libegl1 libopengl0 libvulkan1 mesa-vulkan-drivers`.

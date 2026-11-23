@@ -88,14 +88,14 @@ test('publishRuntime restores the previous runtime if publication fails', async 
 });
 
 test('library rules and conditional arguments select the current operating system', () => {
-  const name = process.platform === 'win32' ? 'windows' : process.platform;
+  const name = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'osx' : process.platform;
   assert.equal(allowed([{ action: 'allow', os: { name } }]), true);
   assert.equal(allowed([{ action: 'allow', os: { name: name === 'linux' ? 'windows' : 'linux' } }]), false);
   assert.equal(allowed([{ action: 'allow' }, { action: 'disallow', os: { name } }]), false);
   assert.deepEqual(argumentsFor([{ rules: [{ action: 'allow', os: { name } }], value: ['-cp', '${classpath}'] }], { classpath: 'libraries' }), ['-cp', 'libraries']);
 });
 
-test('Linux Java extraction retains executable permissions and rejects escaping links', { skip: process.platform !== 'linux' }, async (t) => {
+test('Java extraction retains executable permissions, accepts the macOS layout, and rejects escaping links', { skip: !['linux', 'darwin'].includes(process.platform) }, async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'mizius-java-tar-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const source = path.join(root, 'source');
@@ -108,6 +108,16 @@ test('Linux Java extraction retains executable permissions and rejects escaping 
   await mkdir(target);
   assert.equal(await extractJavaTar(archive, target), 'jre/bin/java');
   assert.ok((await stat(path.join(target, 'jre', 'bin', 'java'))).mode & 0o111);
+
+  const macSource = path.join(root, 'mac-source');
+  await mkdir(path.join(macSource, 'jdk', 'Contents', 'Home', 'bin'), { recursive: true });
+  await writeFile(path.join(macSource, 'jdk', 'Contents', 'Home', 'bin', 'java'), '#!/bin/sh\nexit 0\n');
+  await chmod(path.join(macSource, 'jdk', 'Contents', 'Home', 'bin', 'java'), 0o755);
+  await createTar({ gzip: true, file: archive, cwd: macSource }, ['jdk']);
+  const macTarget = path.join(root, 'mac-target');
+  await mkdir(macTarget);
+  assert.equal(await extractJavaTar(archive, macTarget), 'jdk/Contents/Home/bin/java');
+
   await symlink('../../../outside', path.join(source, 'jre', 'escape'));
   await createTar({ gzip: true, file: archive, cwd: source }, ['jre']);
   const unsafeTarget = path.join(root, 'unsafe');
